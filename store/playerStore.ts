@@ -1,31 +1,16 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// --- MOCK TRACKPLAYER FOR EXPO GO ---
-const TrackPlayer = {
-  setupPlayer: async () => {},
-  updateOptions: async () => {},
-  add: async () => {},
-  pause: async () => {},
-  play: async () => {},
-  reset: async () => {},
-  seekTo: async () => {},
-  setRate: async () => {},
-  setVolume: async () => {},
-  getPlaybackState: async () => ({ state: 'paused' }),
-  getProgress: async () => ({ position: 0, duration: 0, buffered: 0 }),
-  getQueue: async () => [],
-  addEventListener: () => ({ remove: () => {} }),
-};
-export const Event = { PlaybackProgressUpdated: 'PlaybackProgressUpdated', PlaybackQueueEnded: 'PlaybackQueueEnded', PlaybackState: 'PlaybackState' };
-export const TPState = { None: 'none', Ready: 'ready', Playing: 'playing', Paused: 'paused', Stopped: 'stopped', Buffering: 'buffering', Loading: 'loading', Error: 'error' } as any;
-export const AppKilledPlaybackBehavior = { ContinuePlayback: 'ContinuePlayback' };
-export const Capability = { Play: 1, Pause: 2, SkipToNext: 3, SkipToPrevious: 4, Stop: 5, SeekTo: 6 };
-export const IOSCategory = { Playback: 'Playback' };
-export const IOSCategoryMode = { Default: 'Default' };
-export const IOSCategoryOptions = { AllowBluetooth: 1, AllowBluetoothA2DP: 2 };
-export const PitchAlgorithm = { Linear: 'Linear' };
-// ------------------------------------
+import TrackPlayer, { 
+  Event, 
+  State as TPState, 
+  AppKilledPlaybackBehavior, 
+  Capability, 
+  IOSCategory, 
+  IOSCategoryMode, 
+  IOSCategoryOptions, 
+  PitchAlgorithm 
+} from 'react-native-track-player';
 
 import { Track } from '../constants';
 import { useOfflineStore } from './offlineStore';
