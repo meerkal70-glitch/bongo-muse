@@ -19,7 +19,7 @@ import { supabase } from '../lib/supabase';
 import * as Haptics from 'expo-haptics';
 import * as React from 'react';
 import { Alert } from 'react-native';
-import { createAudioPlayer, AudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { createAudioPlayer, AudioPlayer } from 'expo-audio';
 
 let backgroundBeatPlayer: AudioPlayer | null = null;
 
@@ -166,18 +166,6 @@ export const usePlayerStore = create<PlayerStore>()(
   initPlayer: async () => {
     if (get().isPlayerReady) return;
     try {
-      try {
-        // Keep playing when the app is in the background / screen is locked,
-        // ignore the silent switch, and own the lock-screen controls (requires doNotMix).
-        await setAudioModeAsync({
-          playsInSilentMode: true,
-          shouldPlayInBackground: true,
-          interruptionMode: 'doNotMix',
-          allowsRecording: false,
-        });
-      } catch (e) {
-        console.warn('[player] setAudioModeAsync failed', e);
-      }
 
       await TrackPlayer.setupPlayer({
         iosCategory: IOSCategory.Playback,
