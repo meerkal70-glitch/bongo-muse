@@ -1,0 +1,57 @@
+name: Build Unsigned IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build iOS App
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prebuild iOS
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Build Unsigned IPA
+        run: |
+          cd ios
+          
+          # Find the workspace name
+          WORKSPACE=$(ls -1 | grep '\.xcworkspace$' | head -n 1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          
+          echo "Building workspace: $WORKSPACE with scheme: $SCHEME"
+          
+          # Build the .app using xcodebuild without code signing
+          xcodebuild -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath derivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_IDENTITY="" \
+            build
+            
+          # Package the .app into an unsigned .ipa
+          mkdir -p Payload
+          mv derivedData/Build/Products/Release-iphoneos/*.app Payload/
+          zip -r app.ipa Payload
+          
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unsigned-BongoStream-IPA
+          path: ios/app.ipa
