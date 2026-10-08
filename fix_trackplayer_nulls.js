@@ -27,5 +27,6 @@ fs.writeFileSync(file1, code1, 'utf-8');
 
 let file2 = 'node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt';
 let code2 = fs.readFileSync(file2, 'utf-8');
-code2 = code2.replace("override fun onBind(intent: Intent?): IBinder {", "override fun onBind(intent: Intent): IBinder? {");
+code2 = code2.replace("override fun onBind(intent: Intent?): IBinder {", "override fun onBind(intent: Intent?): IBinder? {");
+code2 = code2.replace("override fun onBind(intent: Intent): IBinder? {", "override fun onBind(intent: Intent?): IBinder? {"); // safety check
 fs.writeFileSync(file2, code2, 'utf-8');
