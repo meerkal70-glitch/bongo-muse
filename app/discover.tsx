@@ -1,11 +1,14 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, Dimensions, TouchableOpacity, ActivityIndicator, Animated, Easing, Share, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, FlatList, Dimensions, TouchableOpacity, ActivityIndicator, Animated, Easing, Share, Alert, AppState } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { supabase } from '../lib/supabase';
 import { Track } from '../constants';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import { FFmpegKit, ReturnCode } from 'ffmpeg-kit-react-native';
 import { useThemeStore } from '../store/themeStore';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -80,7 +83,7 @@ const ListenFullButton = ({ ended, color, textColor, onPress }: { ended: boolean
   );
 };
 
-const TrackSlide = ({ item, height, isActive, isLoadingAudio, previewProgress, previewEnded, onReplay, onListenFull, onComment, previewElapsedMs, previewTime }: { item: Track, height: number, isActive: boolean, isLoadingAudio: boolean, previewProgress: number, previewEnded: boolean, onReplay: () => void, onListenFull: () => void, onComment: () => void, previewElapsedMs: number, previewTime: number }) => {
+const TrackSlide = ({ item, height, isActive, isLoadingAudio, previewProgress, previewEnded, onReplay, onListenFull, onComment, onDownload, isDownloading, previewElapsedMs, previewTime }: { item: Track, height: number, isActive: boolean, isLoadingAudio: boolean, previewProgress: number, previewEnded: boolean, onReplay: () => void, onListenFull: () => void, onComment: () => void, onDownload: () => void, isDownloading: boolean, previewElapsedMs: number, previewTime: number }) => {
   const { COLORS } = useThemeStore();
   const insets = useSafeAreaInsets();
   const { session } = useAuthStore();
@@ -348,11 +351,15 @@ const TrackSlide = ({ item, height, isActive, isLoadingAudio, previewProgress, p
             </View>
             <Text style={styles.actionText}>Share</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => alert('Watermark Download coming soon!')}>
+          <TouchableOpacity style={styles.actionBtn} onPress={onDownload} disabled={isDownloading}>
             <View style={styles.iconCircle}>
-              <Ionicons name="arrow-down-circle" size={26} color="#fff" />
+              {isDownloading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Ionicons name="arrow-down-circle" size={26} color="#fff" />
+              )}
             </View>
-            <Text style={styles.actionText}>Save</Text>
+            <Text style={styles.actionText}>{isDownloading ? 'Saving' : 'Save'}</Text>
           </TouchableOpacity>
           
           <View style={styles.vinylContainer}>
@@ -375,6 +382,7 @@ export default function DiscoverScreen() {
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [commentTrackId, setCommentTrackId] = useState<string | null>(null);
+  const [downloadingTrackId, setDownloadingTrackId] = useState<string | null>(null);
   const { pause, playTrack, currentTrack } = usePlayerStore();
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -408,6 +416,27 @@ export default function DiscoverScreen() {
     fetchDiscoverTracks();
     return () => {
       stopAudio();
+    };
+  }, []);
+
+  // Stop audio when screen loses focus
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        stopAudio();
+      };
+    }, [])
+  );
+
+  // Stop audio when app goes to background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState.match(/inactive|background/)) {
+        stopAudio();
+      }
+    });
+    return () => {
+      subscription.remove();
     };
   }, []);
 
@@ -505,6 +534,58 @@ export default function DiscoverScreen() {
     setLoading(false);
   };
 
+  const handleDownloadVideo = async (track: Track) => {
+    try {
+      setDownloadingTrackId(track.id);
+      
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'We need permission to save the video.');
+        setDownloadingTrackId(null);
+        return;
+      }
+
+      const audioUrl = toCdn(track.audio_url);
+      const coverUrl = toCdn(track.cover_url);
+
+      if (!audioUrl || !coverUrl) {
+         Alert.alert('Error', 'Missing media for this track.');
+         setDownloadingTrackId(null);
+         return;
+      }
+
+      const audioPath = `${FileSystem.cacheDirectory}temp_audio_${track.id}.mp3`;
+      const coverPath = `${FileSystem.cacheDirectory}temp_cover_${track.id}.jpg`;
+      const outPath = `${FileSystem.cacheDirectory}${track.id}_watermarked.mp4`;
+
+      await FileSystem.downloadAsync(audioUrl, audioPath);
+      await FileSystem.downloadAsync(coverUrl, coverPath);
+
+      const outInfo = await FileSystem.getInfoAsync(outPath);
+      if (outInfo.exists) {
+        await FileSystem.deleteAsync(outPath);
+      }
+
+      // 720x1280 video with blurred background and cover art in center
+      const ffmpegCommand = `-loop 1 -i "${coverPath}" -i "${audioPath}" -filter_complex "[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,boxblur=20:20[bg];[0:v]scale=720:1280:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2" -c:v mpeg4 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${outPath}"`;
+
+      const session = await FFmpegKit.execute(ffmpegCommand);
+      const returnCode = await session.getReturnCode();
+      
+      if (ReturnCode.isSuccess(returnCode)) {
+        await MediaLibrary.saveToLibraryAsync(outPath);
+        Alert.alert('Saved!', 'Video has been saved to your gallery.');
+      } else {
+        Alert.alert('Error', 'Failed to generate video.');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    } finally {
+      setDownloadingTrackId(null);
+    }
+  };
+
   const stopAudio = () => {
     if (previewTimerRef.current) {
       clearTimeout(previewTimerRef.current);
@@ -576,6 +657,8 @@ export default function DiscoverScreen() {
               router.push('/player');
             }}
             onComment={() => setCommentTrackId(item.id)}
+            onDownload={() => handleDownloadVideo(item)}
+            isDownloading={downloadingTrackId === item.id}
           />
         )}
       />
