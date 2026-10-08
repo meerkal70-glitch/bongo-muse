@@ -39,7 +39,6 @@
     "expo-sharing": "~57.0.22",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
-    "ffmpeg-kit-react-native": "^5.1.0",
     "i18next": "^26.3.4",
     "isomorphic-git": "^1.42.4",
     "patch-package": "^8.0.1",

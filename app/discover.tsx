@@ -8,7 +8,6 @@ import { supabase } from '../lib/supabase';
 import { Track } from '../constants';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import { FFmpegKit, ReturnCode } from 'ffmpeg-kit-react-native';
 import { useThemeStore } from '../store/themeStore';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -554,30 +553,12 @@ export default function DiscoverScreen() {
          return;
       }
 
-      const audioPath = `${FileSystem.cacheDirectory}temp_audio_${track.id}.mp3`;
-      const coverPath = `${FileSystem.cacheDirectory}temp_cover_${track.id}.jpg`;
-      const outPath = `${FileSystem.cacheDirectory}${track.id}_watermarked.mp4`;
-
+      const audioPath = `${FileSystem.cacheDirectory}track_${track.id}.mp3`;
       await FileSystem.downloadAsync(audioUrl, audioPath);
-      await FileSystem.downloadAsync(coverUrl, coverPath);
 
-      const outInfo = await FileSystem.getInfoAsync(outPath);
-      if (outInfo.exists) {
-        await FileSystem.deleteAsync(outPath);
-      }
+      await MediaLibrary.saveToLibraryAsync(audioPath);
+      Alert.alert('Saved!', 'Audio track saved to your device.');
 
-      // 720x1280 video with blurred background and cover art in center
-      const ffmpegCommand = `-loop 1 -i "${coverPath}" -i "${audioPath}" -filter_complex "[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,boxblur=20:20[bg];[0:v]scale=720:1280:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2" -c:v mpeg4 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${outPath}"`;
-
-      const session = await FFmpegKit.execute(ffmpegCommand);
-      const returnCode = await session.getReturnCode();
-      
-      if (ReturnCode.isSuccess(returnCode)) {
-        await MediaLibrary.saveToLibraryAsync(outPath);
-        Alert.alert('Saved!', 'Video has been saved to your gallery.');
-      } else {
-        Alert.alert('Error', 'Failed to generate video.');
-      }
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'An unexpected error occurred.');
