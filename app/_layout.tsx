@@ -7,20 +7,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 
 
 
-import * as Sentry from '@sentry/react-native';
-
-// Crash reporting: catches JS errors and native iOS/Android crashes.
-// Native crashes are sent on the next app launch.
-try {
-  Sentry.init({
-    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || undefined,
-    debug: false,
-    enableNative: true,
-    enableNativeCrashHandling: true,
-    attachStacktrace: true,
-    tracesSampleRate: 0.2,
-  });
-} catch (e) {}
+// Sentry removed
 
 // Keep the native splash screen visible until we are ready — this PREVENTS the white flash
 try {
