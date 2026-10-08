@@ -13,7 +13,7 @@ import * as Sentry from '@sentry/react-native';
 // Native crashes are sent on the next app launch.
 try {
   Sentry.init({
-    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || undefined,
     debug: false,
     enableNative: true,
     enableNativeCrashHandling: true,

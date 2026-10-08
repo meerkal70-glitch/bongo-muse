@@ -350,16 +350,6 @@ const TrackSlide = ({ item, height, isActive, isLoadingAudio, previewProgress, p
             </View>
             <Text style={styles.actionText}>Share</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={onDownload} disabled={isDownloading}>
-            <View style={styles.iconCircle}>
-              {isDownloading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Ionicons name="arrow-down-circle" size={26} color="#fff" />
-              )}
-            </View>
-            <Text style={styles.actionText}>{isDownloading ? 'Saving' : 'Save'}</Text>
-          </TouchableOpacity>
           
           <View style={styles.vinylContainer}>
             <Animated.Image 
