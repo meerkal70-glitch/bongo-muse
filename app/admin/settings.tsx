@@ -237,7 +237,7 @@ export default function AdminSettingsScreen() {
 
               <Text style={styles.inputLabel}>Title (e.g. "Speech (beta) is here.")</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.standaloneInput]}
                 placeholder="Title..."
                 placeholderTextColor={COLORS.textSecondary}
                 value={announcementTitle}
@@ -246,7 +246,7 @@ export default function AdminSettingsScreen() {
               
               <Text style={styles.inputLabel}>Description</Text>
               <TextInput
-                style={[styles.input, { height: 80 }]}
+                style={[styles.input, styles.standaloneInput, { height: 80, paddingVertical: 12 }]}
                 placeholder="Description..."
                 placeholderTextColor={COLORS.textSecondary}
                 value={announcementDesc}
@@ -256,7 +256,7 @@ export default function AdminSettingsScreen() {
 
               <Text style={styles.inputLabel}>Button Text (Leave blank to hide button)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.standaloneInput]}
                 placeholder="Try Now"
                 placeholderTextColor={COLORS.textSecondary}
                 value={announcementBtnText}
@@ -265,7 +265,7 @@ export default function AdminSettingsScreen() {
               
               <Text style={styles.inputLabel}>AI Studio Target Style (Optional)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.standaloneInput]}
                 placeholder="e.g. Bongo Flava, Speech"
                 placeholderTextColor={COLORS.textSecondary}
                 value={announcementStyles}
@@ -274,7 +274,7 @@ export default function AdminSettingsScreen() {
               
               <Text style={styles.inputLabel}>AI Studio Target Prompt (Optional)</Text>
               <TextInput
-                style={[styles.input, { height: 80 }]}
+                style={[styles.input, styles.standaloneInput, { height: 80, paddingVertical: 12 }]}
                 placeholder="Auto-fill prompt when clicked..."
                 placeholderTextColor={COLORS.textSecondary}
                 value={announcementPrompt}
@@ -298,7 +298,7 @@ export default function AdminSettingsScreen() {
                 } catch(e: any) { Alert.alert('Error', e.message); }
                 setSavingAnnouncement(false);
               }} disabled={savingAnnouncement}>
-                <LinearGradient colors={[COLORS.primary, COLORS.accent]} style={styles.saveBtn}>
+                <LinearGradient colors={[COLORS.gold, COLORS.goldLight]} style={styles.saveBtn}>
                   {savingAnnouncement ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>Save Announcement</Text>}
                 </LinearGradient>
               </TouchableOpacity>
@@ -629,6 +629,15 @@ const getStyles = (COLORS: any) => StyleSheet.create({
     paddingVertical: 16, 
     fontSize: 15,
     fontWeight: '500',
+  },
+  standaloneInput: {
+    backgroundColor: `${COLORS.black}60`,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: `${COLORS.divider}60`,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    marginTop: 8,
   },
   saveBtnWrapper: {
     marginTop: 8,

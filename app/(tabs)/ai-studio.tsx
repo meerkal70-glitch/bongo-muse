@@ -5479,11 +5479,11 @@ const wz = StyleSheet.create({
   },
   primaryBtn: {
     borderRadius: 28,
-    overflow: "hidden",
     shadowColor: "#FF2A75",
     shadowOpacity: 0.45,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   primaryBtnInner: {
     height: 56,
