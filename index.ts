@@ -30,9 +30,7 @@ import TrackPlayer from 'react-native-track-player';
 import { Platform } from 'react-native';
 
 try {
-  if (Platform.OS !== 'android') {
-    TrackPlayer.registerPlaybackService(() => require('./service.js'));
-  }
+  TrackPlayer.registerPlaybackService(() => require('./service.js'));
 } catch (e) {
   console.log("TrackPlayer service registration failed", e);
 }

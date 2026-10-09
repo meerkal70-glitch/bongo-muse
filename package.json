@@ -52,7 +52,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
-    "react-native-track-player": "^4.1.2",
+    "react-native-track-player": "^5.0.0-alpha0-nightly-cad7f4b0cdea1ab20fd988debcfdbdced7907a39",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-view-shot": "5.1.0",
     "zustand": "^5.0.3"
@@ -78,6 +78,11 @@
           "react-native-track-player"
         ]
       }
+    },
+    "install": {
+      "exclude": [
+        "react-native-worklets"
+      ]
     }
   }
 }
