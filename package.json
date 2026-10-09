@@ -67,7 +67,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "postinstall": "echo 'patch-package disabled for expo go'"
+    "postinstall": "patch-package"
   },
   "private": true,
   "expo": {
