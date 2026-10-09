@@ -167,15 +167,16 @@ export const usePlayerStore = create<PlayerStore>()(
     if (get().isPlayerReady) return;
     try {
 
-      await TrackPlayer.setupPlayer({
-        iosCategory: IOSCategory.Playback,
-        iosCategoryMode: IOSCategoryMode.Default,
-        iosCategoryOptions: [IOSCategoryOptions.AllowBluetooth, IOSCategoryOptions.AllowBluetoothA2DP]
-      });
-      await TrackPlayer.updateOptions({
-        android: {
-          appKilledPlaybackBehavior: AppKilledPlaybackBehavior.ContinuePlayback
-        },
+      if (Platform.OS !== 'android') {
+        await TrackPlayer.setupPlayer({
+          iosCategory: IOSCategory.Playback,
+          iosCategoryMode: IOSCategoryMode.Default,
+          iosCategoryOptions: [IOSCategoryOptions.AllowBluetooth, IOSCategoryOptions.AllowBluetoothA2DP]
+        });
+        await TrackPlayer.updateOptions({
+          android: {
+            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.ContinuePlayback
+          },
         capabilities: [
           Capability.Play,
           Capability.Pause,
@@ -197,6 +198,7 @@ export const usePlayerStore = create<PlayerStore>()(
           Capability.SkipToPrevious
         ],
       });
+      }
       set({ isPlayerReady: true });
 
       // Bug 3 Fix: Restore last track into TrackPlayer (paused) so user can continue
