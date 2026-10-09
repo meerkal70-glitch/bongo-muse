@@ -18,13 +18,19 @@ if ((global as any).ErrorUtils) {
       console.error('Failed to show error alert', e);
     }
     
-    // We purposefully DO NOT call originalHandler here if it is fatal
-    // because calling it tells React Native to crash the app immediately, 
-    // which prevents the user from reading the Alert!
+    setTimeout(() => {
+      if (originalHandler) {
+        originalHandler(error, isFatal);
+      }
+    }, 2000);
   });
 }
 
-require('expo-router/entry');
-
 import TrackPlayer from 'react-native-track-player';
-TrackPlayer.registerPlaybackService(() => require('./service.js'));
+try {
+  TrackPlayer.registerPlaybackService(() => require('./service.js'));
+} catch (e) {
+  console.log("TrackPlayer service registration failed", e);
+}
+
+require('expo-router/entry');

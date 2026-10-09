@@ -30,9 +30,17 @@ const getDeviceId = async () => {
   
   // Always try to save it back to ensure fast retrieval next time
   try { await SecureStore.setItemAsync('bongo_device_id', deviceId); } catch(e) {}
-  await AsyncStorage.setItem('bongo_device_id', deviceId);
+  try { await AsyncStorage.setItem('bongo_device_id', deviceId); } catch(e) {}
   
   return deviceId;
+};
+
+// Timeout wrapper for Supabase auth which sometimes hangs on Android
+const withTimeout = (promise: Promise<any>, ms: number) => {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+  ]);
 };
 
 type AuthStore = {
@@ -59,7 +67,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   init: async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), 5000);
       if (error) {
         console.log('Session error:', error);
       }
@@ -113,22 +121,22 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   signInAnonymously: async () => {
     set({ isLoading: true });
     try {
-      const deviceId = await getDeviceId();
+      const deviceId = await withTimeout(getDeviceId(), 3000);
       const email = `device_${deviceId}@guest.bongo.app`;
       const password = `secret_${deviceId}_bongo!`;
 
       // Try to sign in first
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: signInError } = await withTimeout(supabase.auth.signInWithPassword({ email, password }), 5000);
       
       if (signInError) {
         // If account doesn't exist, sign them up
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { error: signUpError } = await withTimeout(supabase.auth.signUp({
           email,
           password,
           options: {
             data: { username: `guest_${deviceId.substring(0, 8)}`, display_name: 'Guest User' }
           }
-        });
+        }), 5000);
         
         if (signUpError) {
           set({ isLoading: false });
