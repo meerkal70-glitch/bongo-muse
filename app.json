@@ -3,7 +3,7 @@
     "name": "Bongo Stream",
     "slug": "combongostreamapp",
     "backgroundColor": "#0A0A0F",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "scheme": "bongo-stream",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -32,7 +32,7 @@
         "backgroundColor": "#0A0A0F"
       },
       "package": "com.bongostream.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
@@ -76,9 +76,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "594973de-c71e-4977-9157-480ee3465b15"
+        "projectId": "72872d7d-624b-4d08-8ede-ef50e9c04bb8"
       }
     },
-    "owner": "dapazcmd"
+    "owner": "cmdss"
   }
 }

@@ -62,7 +62,7 @@ function RootLayout() {
     
     // Force allow screenshots globally in case the native flag is stuck from hot-reloading
     try {
-      ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+      // ScreenCapture.preventScreenCaptureAsync().catch(() => {});
     } catch (e) {}
 
     // Make Android navigation bar transparent and absolute like iOS
