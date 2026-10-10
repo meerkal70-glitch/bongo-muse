@@ -1,0 +1,15 @@
+#!/usr/bin/expect -f
+
+set timeout 30
+spawn bash -c "export NVM_DIR=\"$HOME/.nvm\" && \[ -s \"$NVM_DIR/nvm.sh\" \] && . \"$NVM_DIR/nvm.sh\" && export EXPO_TOKEN=\"hcyYbnxx2Yay7-QqB3_HhU3gFd6Hrkc1NybPfyWr\" && eas credentials -p android"
+
+expect "Which build profile do you want to configure"
+send "\033\[B\033\[B\r"
+
+expect "What do you want to do"
+send "\033\[B\r"
+
+expect "What do you want to do"
+send "Download\r"
+
+expect eof

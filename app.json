@@ -32,10 +32,8 @@
         "backgroundColor": "#0A0A0F"
       },
       "package": "com.bongostream.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
         "RECORD_AUDIO",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -68,7 +66,8 @@
           "microphonePermission": "Bongo Stream uses the microphone to record your vocals and voice samples."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "./withRemoveMediaPermissions"
     ],
     "experiments": {
       "typedRoutes": true
