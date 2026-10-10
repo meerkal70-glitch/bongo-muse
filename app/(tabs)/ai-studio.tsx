@@ -1546,9 +1546,14 @@ export default function AIStudioScreen() {
                 isVoicePersona: capturedIsVoice,
               }
             : {
-                prompt: capturedLyrics || capturedPrompt,
+                prompt: capturedLyrics
+                  ? capturedLyrics
+                  : audioUrl
+                    ? capturedPrompt
+                    : [capturedPrompt, capturedStyles].filter(Boolean).join(". "),
                 tags: capturedStyles || (!capturedLyrics ? capturedPrompt : ""),
                 title: taskTitle,
+                hasLyrics: !!capturedLyrics,
                 make_instrumental: !capturedLyrics && !capturedPrompt,
                 audioUrl,
                 personaId: capturedPersonaId || undefined,

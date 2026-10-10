@@ -1235,6 +1235,8 @@ export const generateSunoTrack = async (params: {
   tags?: string;
   title?: string;
   make_instrumental?: boolean;
+  /** true = `prompt` is exact lyrics (needs a style). false = `prompt` is a song idea Suno writes lyrics for. */
+  hasLyrics?: boolean;
   /** PUBLIC url of an uploaded audio file → Upload & Cover (keeps the melody). */
   audioUrl?: string;
   /** PUBLIC url of an uploaded video (mp4/mov/webm, ≤241s, ≤100MB) → Suno uses its soundtrack as reference. */
@@ -1283,9 +1285,26 @@ export const generateSunoTrack = async (params: {
         ...(params.personaId ? { personaId: params.personaId, personaModel } : {}),
       });
     }
+    const hasLyrics = params.hasLyrics ?? true;
+    if (!hasLyrics && !params.make_instrumental) {
+      // Idea only → NON-custom mode: Suno writes the lyrics itself (prompt ≤ 500 chars).
+      return generateMusic(
+        (params.prompt || '').slice(0, 500),
+        '',
+        '',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        params.personaId,
+        !!params.personaId && asVoice,
+        { customMode: false, instrumental: false },
+      );
+    }
     return generateMusic(
-      params.prompt,
-      params.tags ?? '',
+      (params.prompt || '').slice(0, 5000),
+      // Custom mode REQUIRES a style — fall back so own-lyrics never get rejected.
+      (params.tags || '').trim().slice(0, 1000) || 'Pop',
       params.title ?? 'Untitled',
       undefined,
       undefined,
