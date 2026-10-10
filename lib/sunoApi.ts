@@ -1045,14 +1045,14 @@ export const extendAudio = async (
 export const generateLyricsApi = async (prompt: string): Promise<any> => {
   const { apiKey, baseUrl } = await getApiConfig();
 
-  // Step 1: Submit the lyrics generation request
-  const submitRes = await fetch(`${baseUrl}/generate/lyrics`, {
+  // Step 1: Submit — POST /lyrics (callBackUrl is required by the API)
+  const submitRes = await fetch(`${baseUrl}/lyrics`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, callBackUrl: 'https://httpbin.org/post' }),
   });
 
   if (!submitRes.ok) {
@@ -1063,53 +1063,44 @@ export const generateLyricsApi = async (prompt: string): Promise<any> => {
   const submitJson = await submitRes.json();
   if (submitJson.code !== 200) throw new Error(submitJson.msg || 'Failed to start lyrics generation');
 
-  // Extract taskId from response
   const taskId =
     submitJson.data?.taskId ||
     submitJson.taskId ||
     (typeof submitJson.data === 'string' ? submitJson.data : null);
+  if (!taskId) throw new Error('No taskId returned from lyrics generation');
 
-  // If the API returned lyrics directly (no taskId), return immediately
-  if (!taskId) {
-    const directText =
-      submitJson.data?.text ||
-      submitJson.data?.lyrics ||
-      submitJson.text ||
-      submitJson.lyrics;
-    if (directText) return { text: directText };
-    throw new Error('No taskId returned from lyrics generation');
-  }
-
-  // Step 2: Poll GET /generate/lyrics?taskId= until SUCCESS
-  for (let i = 0; i < 30; i++) {
+  // Step 2: Poll GET /lyrics/record-info?taskId=
+  //   data.response.data = [{ text, title, status, errorMessage }, ...]
+  for (let i = 0; i < 40; i++) {
     await new Promise((r) => setTimeout(r, 3000));
 
-    const pollRes = await fetch(`${baseUrl}/generate/lyrics?taskId=${taskId}`, {
+    const pollRes = await fetch(`${baseUrl}/lyrics/record-info?taskId=${taskId}`, {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
-
     if (!pollRes.ok) continue; // transient error, keep polling
 
     const pollJson = await pollRes.json();
     if (pollJson.code !== 200) continue;
 
     const data = pollJson.data;
-    const status = (data?.status || data?.successFlag || '').toUpperCase();
+    const status = String(data?.status || '').toUpperCase();
+    const items: any[] = Array.isArray(data?.response?.data) ? data.response.data : [];
+    const first = items.find((it) => it?.text) || null;
 
-    if (status === 'SUCCESS' || status === 'COMPLETE') {
-      // Return normalised shape that suno.ts generateLyrics can read
+    if (first) {
       return {
-        text: data?.text || data?.lyrics || data?.response?.text || '',
-        title: data?.title || '',
-        tags: data?.tags || data?.style || '',
+        text: first.text,
+        title: first.title || '',
+        tags: '',
+        variants: items,
       };
     }
 
-    if (status === 'FAILED' || status === 'ERROR') {
-      throw new Error(data?.failReason || 'Lyrics generation failed on the server.');
+    if (/FAIL|ERROR/.test(status)) {
+      throw new Error(data?.errorMessage || 'Lyrics generation failed on the server.');
     }
-    // Still PROCESSING — keep polling
+    // Still PENDING / PROCESSING — keep polling
   }
 
   throw new Error('Lyrics generation timed out. Please try again.');
