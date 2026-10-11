@@ -1,8 +1,9 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
+import { getLocales } from 'expo-localization';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView as BlurView } from '@/components/GlassView';
 import { supabase } from '../lib/supabase';
@@ -10,26 +11,38 @@ import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { LinearGradient } from 'expo-linear-gradient';
 
-
 export default function BuyCreditsScreen() {
   const { COLORS } = useThemeStore();
   const styles = getStyles(COLORS);
   const router = useRouter();
   const { session, profile, fetchProfile } = useAuthStore();
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [creditsToBuy, setCreditsToBuy] = useState('1');
+  const [creditsToBuy, setCreditsToBuy] = useState('3');
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [mpesaEnabled, setMpesaEnabled] = useState(false);
+  const [snippeIosEnabled, setSnippeIosEnabled] = useState(false);
 
-  // Admin controls whether Vodacom M-Pesa is accepted (system_settings.mpesa_enabled)
+  // Region detection
+  const region = getLocales()[0]?.region;
+  const isTanzania = region === 'TZ';
+  
+  // Dynamic display logic:
+  // Android always shows Snippe if in TZ. iOS ONLY shows it if the admin turns it on.
+  const showSnippe = isTanzania && (Platform.OS === 'android' || snippeIosEnabled);
+
+  // Admin settings fetch
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.from('system_settings').select('value').eq('key', 'mpesa_enabled').maybeSingle();
-        setMpesaEnabled(data?.value === 'true');
+        const { data: mpesaData } = await supabase.from('system_settings').select('value').eq('key', 'mpesa_enabled').maybeSingle();
+        setMpesaEnabled(mpesaData?.value === 'true');
+        
+        const { data: snippeData } = await supabase.from('system_settings').select('value').eq('key', 'snippe_ios_enabled').maybeSingle();
+        setSnippeIosEnabled(snippeData?.value === 'true');
       } catch (e) {
         setMpesaEnabled(false);
+        setSnippeIosEnabled(false);
       }
     })();
   }, []);
@@ -48,7 +61,7 @@ export default function BuyCreditsScreen() {
         const newStatus = payload.new.status;
         if (newStatus === 'completed') {
           setIsProcessing(false);
-          Alert.alert("Success!", "Payment received. You now have 1 new credit!", [
+          Alert.alert("Success!", "Payment received. You now have new credits!", [
             { text: "Awesome", onPress: () => {
               if (session?.user.id) fetchProfile(session.user.id);
               router.back();
@@ -67,7 +80,7 @@ export default function BuyCreditsScreen() {
     };
   }, [transactionId]);
 
-  const handlePayment = async () => {
+  const handleSnippePayment = async () => {
     const cleanPhone = phoneNumber.replace(/\s+/g, '');
 
     if (!cleanPhone || cleanPhone.length < 9) {
@@ -102,6 +115,19 @@ export default function BuyCreditsScreen() {
       setIsProcessing(false);
       Alert.alert("Error", e.message);
     }
+  };
+
+  const handleIAPPayment = async () => {
+    // This is a placeholder for RevenueCat IAP
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      Alert.alert(
+        "Apple/Google Pay (Mock)", 
+        "This is where the native In-App Purchase sheet will appear to charge the user's Apple or Google account.",
+        [{ text: "OK" }]
+      );
+    }, 1000);
   };
 
   const handleVerifyPayments = async () => {
@@ -147,6 +173,10 @@ export default function BuyCreditsScreen() {
     }
   };
 
+  const creditsNum = parseInt(creditsToBuy) || 1;
+  const priceTZS = creditsNum * 500;
+  const priceUSD = (creditsNum * 0.99).toFixed(2); // Example $0.99 per credit
+
   return (
     <View style={{ flex: 1, backgroundColor: '#0A0A0F' }}>
       <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
@@ -191,69 +221,145 @@ export default function BuyCreditsScreen() {
                 <Text style={[styles.verifyText, { color: COLORS.gold }]}>Claim Free Credit (Gift)</Text>
               </TouchableOpacity>
             )}
+
+
           </BlurView>
 
           <BlurView intensity={30} tint="dark" style={[styles.packageCard]}>
             <View style={styles.packageHeader}>
               <Text style={styles.packageTitle}>Need more credits?</Text>
             </View>
-            <Text style={styles.packageDesc}>Generate fully produced songs or upload custom audio. 1 Credit = 500 TZS (Equivalent to 2 full songs!).</Text>
+            <Text style={styles.packageDesc}>Generate fully produced songs or upload custom audio. 1 Credit = {showSnippe ? '500 TZS' : '$0.99'} (Equivalent to 2 full songs!).</Text>
+            
+            <View style={{ marginTop: 12, gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="checkmark-circle" size={16} color={COLORS.gold} />
+                <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>Download generated songs for Commercial Use</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="checkmark-circle" size={16} color={COLORS.gold} />
+                <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>Clone and generate songs with your Custom Voice</Text>
+              </View>
+            </View>
             
             <View style={styles.divider} />
 
-            <Text style={styles.label}>How many credits?</Text>
-            <View style={[styles.inputRow, { marginBottom: 16 }]}>
-              <Ionicons name="diamond" size={20} color={COLORS.gold} />
-              <TextInput 
-                style={styles.input} 
-                placeholder="Number of credits (e.g. 2)" 
-                placeholderTextColor={COLORS.textTertiary}
-                keyboardType="number-pad"
-                value={creditsToBuy}
-                onChangeText={setCreditsToBuy}
-                editable={!isProcessing}
-              />
-            </View>
-            
-            <Text style={styles.label}>Pay with Mobile Money <Text style={{ color: COLORS.gold, fontSize: 12 }}>(Airtel, Halopesa{mpesaEnabled ? ', Tigo & M-Pesa' : ' & Tigo'})</Text></Text>
-            <View style={styles.inputRow}>
-              <Ionicons name="phone-portrait-outline" size={20} color={COLORS.gold} />
-              <TextInput 
-                style={styles.input} 
-                placeholder="e.g. 0754000000" 
-                placeholderTextColor={COLORS.textTertiary}
-                keyboardType="phone-pad"
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                editable={!isProcessing}
-              />
-            </View>
+            {showSnippe ? (
+              <>
+                {/* TANZANIA ANDROID UI (SNIPPE) */}
+                <Text style={styles.label}>How many credits?</Text>
+                <View style={[styles.inputRow, { marginBottom: 16 }]}>
+                  <Ionicons name="diamond" size={20} color={COLORS.gold} />
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Number of credits (e.g. 2)" 
+                    placeholderTextColor={COLORS.textTertiary}
+                    keyboardType="number-pad"
+                    value={creditsToBuy}
+                    onChangeText={setCreditsToBuy}
+                    editable={!isProcessing}
+                  />
+                </View>
+                
+                <Text style={styles.label}>Pay with Mobile Money <Text style={{ color: COLORS.gold, fontSize: 12 }}>(Airtel, Halopesa{mpesaEnabled ? ', Tigo & M-Pesa' : ' & Tigo'})</Text></Text>
+                <View style={styles.inputRow}>
+                  <Ionicons name="phone-portrait-outline" size={20} color={COLORS.gold} />
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="e.g. 0754000000" 
+                    placeholderTextColor={COLORS.textTertiary}
+                    keyboardType="phone-pad"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    editable={!isProcessing}
+                  />
+                </View>
 
-            <TouchableOpacity 
-              style={[isProcessing && { opacity: 0.7 }, { borderRadius: 12, overflow: 'hidden', marginTop: 20 }]} 
-              onPress={handlePayment} 
-              disabled={isProcessing}
-            >
-              <LinearGradient 
-                colors={['#FF2A75', '#FF512F']} 
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} 
-                style={{ padding: 16, alignItems: 'center' }}
-              >
-                {isProcessing ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <ActivityIndicator color="#fff" />
-                    <Text style={[styles.payBtnText, { color: '#fff' }]}>Waiting for PIN...</Text>
-                  </View>
-                ) : (
-                  <Text style={[styles.payBtnText, { color: '#fff' }]}>Pay {(parseInt(creditsToBuy) || 1) * 500} TZS</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[isProcessing && { opacity: 0.7 }, { borderRadius: 12, overflow: 'hidden', marginTop: 20 }]} 
+                  onPress={handleSnippePayment} 
+                  disabled={isProcessing}
+                >
+                  <LinearGradient 
+                    colors={['#FF2A75', '#FF512F']} 
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} 
+                    style={{ padding: 16, alignItems: 'center' }}
+                  >
+                    {isProcessing ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <ActivityIndicator color="#fff" />
+                        <Text style={[styles.payBtnText, { color: '#fff' }]}>Waiting for PIN...</Text>
+                      </View>
+                    ) : (
+                      <Text style={[styles.payBtnText, { color: '#fff' }]}>Pay {priceTZS} TZS</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
 
-            <View style={styles.secureWrap}>
-              <Ionicons name="lock-closed" size={14} color={COLORS.textTertiary} />
-              <Text style={styles.secureText}>Secure Payment</Text>
-            </View>
+                <View style={styles.secureWrap}>
+                  <Ionicons name="lock-closed" size={14} color={COLORS.textTertiary} />
+                  <Text style={styles.secureText}>Secure Mobile Money Payment</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                {/* INTERNATIONAL / iOS UI (IAP PACKAGES) */}
+                <Text style={styles.label}>Select a Package</Text>
+                <View style={{ gap: 12, marginBottom: 8 }}>
+                  
+                  {/* Package 1 */}
+                  <TouchableOpacity style={styles.iapPackageBtn} onPress={handleIAPPayment}>
+                    <View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="diamond" size={16} color={COLORS.gold} />
+                        <Text style={styles.iapPackageCredits}>5 Credits</Text>
+                      </View>
+                      <Text style={styles.iapPackageDesc}>Perfect to get started</Text>
+                    </View>
+                    <View style={styles.iapPackagePriceWrap}>
+                      <Text style={styles.iapPackagePrice}>$4.99</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Package 2 (Popular) */}
+                  <TouchableOpacity style={[styles.iapPackageBtn, { borderColor: COLORS.gold, backgroundColor: 'rgba(212, 175, 55, 0.1)' }]} onPress={handleIAPPayment}>
+                    <View style={styles.popularBadge}>
+                      <Text style={styles.popularBadgeText}>POPULAR</Text>
+                    </View>
+                    <View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="diamond" size={16} color={COLORS.gold} />
+                        <Text style={styles.iapPackageCredits}>15 Credits</Text>
+                      </View>
+                      <Text style={styles.iapPackageDesc}>Best value for creators</Text>
+                    </View>
+                    <View style={[styles.iapPackagePriceWrap, { backgroundColor: COLORS.gold }]}>
+                      <Text style={[styles.iapPackagePrice, { color: '#000' }]}>$9.99</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Package 3 */}
+                  <TouchableOpacity style={styles.iapPackageBtn} onPress={handleIAPPayment}>
+                    <View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="diamond" size={16} color={COLORS.gold} />
+                        <Text style={styles.iapPackageCredits}>50 Credits</Text>
+                      </View>
+                      <Text style={styles.iapPackageDesc}>For power users</Text>
+                    </View>
+                    <View style={styles.iapPackagePriceWrap}>
+                      <Text style={styles.iapPackagePrice}>$29.99</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.secureWrap}>
+                  <Ionicons name="lock-closed" size={14} color={COLORS.textTertiary} />
+                  <Text style={styles.secureText}>Processed securely by {Platform.OS === 'ios' ? 'Apple' : 'Google'}</Text>
+                </View>
+              </>
+            )}
+
           </BlurView>
           
         </ScrollView>
@@ -286,5 +392,12 @@ const getStyles = (COLORS: any) => StyleSheet.create({
   secureWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 },
   secureText: { color: COLORS.textTertiary, fontSize: 12 },
   verifyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 20 },
-  verifyText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' }
+  verifyText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
+  iapPackageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  iapPackageCredits: { color: COLORS.textPrimary, fontSize: 18, fontWeight: '800' },
+  iapPackageDesc: { color: COLORS.textTertiary, fontSize: 12, marginTop: 4 },
+  iapPackagePriceWrap: { backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12 },
+  iapPackagePrice: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  popularBadge: { position: 'absolute', top: -10, left: 16, backgroundColor: COLORS.gold, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  popularBadgeText: { color: '#000', fontSize: 10, fontWeight: '900', letterSpacing: 1 }
 });

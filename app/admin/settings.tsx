@@ -9,7 +9,8 @@ import {
   ActivityIndicator, 
   Alert, 
   ScrollView, 
-  Platform 
+  Platform,
+  Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -33,6 +34,8 @@ export default function AdminSettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [mpesaEnabled, setMpesaEnabled] = useState(true);
   const [enablingMpesa, setEnablingMpesa] = useState(false);
+  const [snippeIosEnabled, setSnippeIosEnabled] = useState(false);
+  const [savingSnippe, setSavingSnippe] = useState(false);
 
   const [announcementEnabled, setAnnouncementEnabled] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
@@ -77,6 +80,9 @@ export default function AdminSettingsScreen() {
 
       const { data: mpesaRow } = await supabase.from('system_settings').select('value').eq('key', 'mpesa_enabled').maybeSingle();
       setMpesaEnabled(mpesaRow?.value === 'true');
+
+      const { data: snippeRow } = await supabase.from('system_settings').select('value').eq('key', 'snippe_ios_enabled').maybeSingle();
+      setSnippeIosEnabled(snippeRow?.value === 'true');
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -328,6 +334,43 @@ export default function AdminSettingsScreen() {
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* Snippe iOS Payment Setting */}
+            <View style={styles.glassCard}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="logo-apple" size={20} color={COLORS.textPrimary} />
+                <Text style={styles.cardTitle}>Snippe Pay on iOS</Text>
+              </View>
+              <Text style={[styles.navSubtitle, { fontSize: 13, lineHeight: 18, marginBottom: 16 }]}>
+                Keep this OFF during Apple review so reviewers only see Apple Pay. Turn ON when the app is approved so Tanzanian iPhone users can use Snippe Pay.
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: `${COLORS.black}60`, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: `${COLORS.divider}60` }}>
+                <Text style={{ color: COLORS.textPrimary, fontSize: 15, fontWeight: '600' }}>Enable for iOS</Text>
+                {savingSnippe ? (
+                  <ActivityIndicator color={COLORS.gold} />
+                ) : (
+                  <Switch 
+                    value={snippeIosEnabled} 
+                    onValueChange={async (val) => {
+                      setSavingSnippe(true);
+                      setSnippeIosEnabled(val);
+                      const { error } = await supabase.from('system_settings').upsert({ 
+                        key: 'snippe_ios_enabled', 
+                        value: val ? 'true' : 'false',
+                        updated_at: new Date().toISOString()
+                      }, { onConflict: 'key' });
+                      
+                      if (error) {
+                        Alert.alert("Error saving setting", "Please run the SQL script in your Supabase dashboard to allow this setting to be created.");
+                        setSnippeIosEnabled(!val);
+                      }
+                      setSavingSnippe(false);
+                    }}
+                    trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
+                  />
+                )}
+              </View>
+            </View>
 
             {/* API Settings Section */}
             <View style={styles.glassCard}>
@@ -631,13 +674,44 @@ const getStyles = (COLORS: any) => StyleSheet.create({
     fontWeight: '500',
   },
   standaloneInput: {
-    backgroundColor: `${COLORS.black}60`,
+    backgroundColor: `${COLORS.cardAlt}40`,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: `${COLORS.divider}60`,
+    borderColor: `${COLORS.divider}80`,
     paddingHorizontal: 16,
     marginBottom: 16,
     marginTop: 8,
+    color: COLORS.textPrimary,
+  },
+  inputLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: COLORS.textTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: COLORS.gold,
+    borderColor: COLORS.gold,
+  },
+  checkboxLabel: {
+    color: COLORS.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   saveBtnWrapper: {
     marginTop: 8,

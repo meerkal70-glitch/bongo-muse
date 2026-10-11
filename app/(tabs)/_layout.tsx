@@ -103,7 +103,6 @@ export default function TabsLayout() {
           name="radio"
           options={{
             title: "Live",
-            href: null, // Hidden from tab bar - accessible from Profile
             tabBarIcon: ({ color }) => <TabBarIcon name="radio" color={color} />,
           }}
         />
