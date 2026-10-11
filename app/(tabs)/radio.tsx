@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, FlatList, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, FlatList, Platform, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,12 +25,20 @@ if (Platform.OS !== 'web' && !isExpoGo) {
 
 const CATEGORIES = ['All', 'Favorites', 'Music', 'Gospel', 'News'];
 
-const STATIONS = [
-  { id: 'wasafi', title: 'Wasafi FM 88.9', desc: 'MP3 • 1 listening', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Wasafi_Classic_Baby_Logo.png/600px-Wasafi_Classic_Baby_Logo.png', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
-  { id: 'clouds', title: 'Clouds FM', desc: 'MP3 • 128 kbps', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/c/c2/Clouds_FM_Logo.jpg/220px-Clouds_FM_Logo.jpg', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
-  { id: 'radiomaria', title: 'RADIO MARIA TANZANIA', desc: 'AAC+ • 32 kbps', logo: 'https://www.radiomaria.tz/wp-content/uploads/2021/04/Logo-Radio-Maria-Tanzania.png', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
-  { id: 'eastafrica', title: 'East Africa Radio', desc: 'MP3 • 64 kbps', logo: 'https://ea-radio.vercel.app/logo.png', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
+// Stations we list by hand (not in the Radio Browser directory or missing)
+const FEATURED_STATIONS = [
+  { id: 'wasafi', title: 'Wasafi FM 88.9', cat: 'Music', desc: 'MP3 • 1 listening', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Wasafi_Classic_Baby_Logo.png/600px-Wasafi_Classic_Baby_Logo.png', streamUrl: 'https://radio.wasafimedia.co.tz/wasafi' },
 ];
+
+const GOSPEL_RE = /gospel|christian|church|religio|worship|bible|mungu|heaven|nuru|maria|kwizera|glorious|injili|praise/i;
+const NEWS_RE = /news|talk|habari|tbc|parliament|sports/i;
+
+const categorize = (name: string, tags: string) => {
+  const t = `${name} ${tags || ''}`;
+  if (GOSPEL_RE.test(t)) return 'Gospel';
+  if (NEWS_RE.test(t)) return 'News';
+  return 'Music';
+};
 
 export default function FMRadioScreen() {
   const { COLORS } = useThemeStore();
@@ -39,11 +47,65 @@ export default function FMRadioScreen() {
   
   const playbackState = usePlaybackState();
   const [currentStation, setCurrentStation] = useState<any>(null);
+  
+  const [stations, setStations] = useState<any[]>(FEATURED_STATIONS);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const isPlaying = playbackState?.state && State ? (playbackState.state === State.Playing || playbackState.state === State.Buffering) : false;
 
   // Fallback player for Expo Go
   const [expoPlayer, setExpoPlayer] = useState<any>(null);
+
+  useEffect(() => {
+    fetchStations();
+  }, []);
+
+  const fetchStations = async () => {
+    try {
+      const res = await fetch('https://de1.api.radio-browser.info/json/stations/bycountrycodeexact/TZ?hidebroken=true&order=votes&reverse=true&limit=80');
+      const raw = await res.json();
+      
+      const seen = new Set<string>();
+      const out: any[] = [...FEATURED_STATIONS];
+      seen.add('wasafifm889');
+      
+      for (const s of raw) {
+        let origUrl: string = s.url_resolved || s.url || '';
+        if (!origUrl) continue;
+        
+        if (/\.(m3u|pls)(\?|$)/i.test(origUrl)) {
+          if (/zeno\.fm/i.test(origUrl)) origUrl = origUrl.replace(/\.(m3u|pls)(\?.*)?$/i, '');
+          else continue;
+        }
+        if (/\.m3u8(\?|$)/i.test(origUrl)) continue;
+        if (/JamendoLounge/i.test(origUrl)) continue;
+        
+        const key = (s.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        
+        let logo = s.favicon || '';
+        if (!logo || logo === 'null' || !logo.startsWith('http')) {
+          logo = `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${new URL(origUrl).hostname.replace(/^www\./, '')}&size=128`;
+        }
+        
+        out.push({
+          id: s.stationuuid,
+          title: (s.name || 'Unknown').trim(),
+          cat: categorize(s.name || '', s.tags || ''),
+          desc: `${s.codec || 'MP3'} • ${s.bitrate || 0} kbps`,
+          logo,
+          streamUrl: origUrl,
+        });
+      }
+      setStations(out);
+    } catch (e) {
+      console.warn("Could not fetch stations", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const playStation = async (station: any) => {
     setCurrentStation(station);
@@ -99,7 +161,7 @@ export default function FMRadioScreen() {
         if (currentStation) {
           playStation(currentStation);
         } else {
-          playStation(STATIONS[0]);
+          playStation(stations[0] || FEATURED_STATIONS[0]);
         }
       }
       return;
@@ -111,10 +173,16 @@ export default function FMRadioScreen() {
       if (currentStation) {
         await TrackPlayer.play();
       } else {
-        playStation(STATIONS[0]);
+        playStation(stations[0] || FEATURED_STATIONS[0]);
       }
     }
   };
+
+  const filteredStations = stations.filter(s => {
+    if (activeCategory !== 'All' && s.cat !== activeCategory && activeCategory !== 'Favorites') return false;
+    if (searchQuery && !s.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 20) }]}>
@@ -171,9 +239,9 @@ export default function FMRadioScreen() {
         <Text style={styles.sectionTitle}>Recently played</Text>
         <View style={styles.recentItem}>
           <View style={[styles.recentCircle, { backgroundColor: '#FFF', overflow: 'hidden' }]}>
-            <Image source={{ uri: STATIONS[0].logo }} style={{ width: '100%', height: '100%' }} contentFit="contain" />
+            <Image source={{ uri: currentStation?.logo || FEATURED_STATIONS[0].logo }} style={{ width: '100%', height: '100%' }} contentFit="contain" />
           </View>
-          <Text style={styles.recentText} numberOfLines={1}>{STATIONS[0].title}</Text>
+          <Text style={styles.recentText} numberOfLines={1}>{currentStation?.title || FEATURED_STATIONS[0].title}</Text>
         </View>
 
         {/* Search */}
@@ -183,6 +251,8 @@ export default function FMRadioScreen() {
             placeholder="Search stations" 
             placeholderTextColor="#888"
             style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
 
@@ -201,23 +271,27 @@ export default function FMRadioScreen() {
 
         {/* Station List */}
         <View style={styles.listContainer}>
-          {STATIONS.map(station => (
-            <TouchableOpacity key={station.id} style={styles.stationRow} onPress={() => playStation(station)}>
-              <View style={[styles.stationLogo, { backgroundColor: '#FFF', overflow: 'hidden' }]}>
-                 <Image source={{ uri: station.logo }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-              </View>
-              <View style={styles.stationDetails}>
-                <Text style={[styles.stationName, currentStation?.id === station.id && { color: '#1DB954' }]}>{station.title}</Text>
-                <Text style={styles.stationDesc}>{station.desc}</Text>
-              </View>
-              <TouchableOpacity style={{ marginRight: 16 }}>
-                <Ionicons name="heart-outline" size={24} color="#888" />
+          {loading ? (
+            <ActivityIndicator size="large" color="#1DB954" style={{ marginTop: 40 }} />
+          ) : (
+            filteredStations.map(station => (
+              <TouchableOpacity key={station.id} style={styles.stationRow} onPress={() => playStation(station)}>
+                <View style={[styles.stationLogo, { backgroundColor: '#FFF', overflow: 'hidden' }]}>
+                   <Image source={{ uri: station.logo }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                </View>
+                <View style={styles.stationDetails}>
+                  <Text style={[styles.stationName, currentStation?.id === station.id && { color: '#1DB954' }]}>{station.title}</Text>
+                  <Text style={styles.stationDesc}>{station.desc}</Text>
+                </View>
+                <TouchableOpacity style={{ marginRight: 16 }}>
+                  <Ionicons name="heart-outline" size={24} color="#888" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.listPlayBtn} onPress={() => playStation(station)}>
+                  <Ionicons name={currentStation?.id === station.id && isPlaying ? "pause" : "play"} size={16} color="#000" />
+                </TouchableOpacity>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.listPlayBtn} onPress={() => playStation(station)}>
-                <Ionicons name={currentStation?.id === station.id && isPlaying ? "pause" : "play"} size={16} color="#000" />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
+            ))
+          )}
         </View>
 
       </ScrollView>
@@ -248,22 +322,22 @@ const styles = StyleSheet.create({
   sectionTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginHorizontal: 16, marginTop: 24, marginBottom: 16 },
   recentItem: { marginHorizontal: 16, width: 70, alignItems: 'center' },
   recentCircle: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  recentText: { color: '#aaa', fontSize: 12 },
+  recentText: { color: '#FFF', fontSize: 12, textAlign: 'center' },
   
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#222', marginHorizontal: 16, marginTop: 24, paddingHorizontal: 12, height: 46, borderRadius: 8, gap: 8 },
-  searchInput: { flex: 1, color: '#FFF', fontSize: 16 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A1A', marginHorizontal: 16, marginTop: 24, borderRadius: 8, paddingHorizontal: 12, height: 44 },
+  searchInput: { flex: 1, color: '#FFF', marginLeft: 8, fontSize: 15 },
   
-  categoriesScroll: { marginTop: 16, paddingHorizontal: 16, marginBottom: 16 },
-  categoryPill: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#444', marginRight: 10 },
-  categoryPillActive: { backgroundColor: '#1DB954', borderColor: '#1DB954' },
+  categoriesScroll: { paddingHorizontal: 16, marginTop: 20, marginBottom: 8 },
+  categoryPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#1A1A1A', marginRight: 8 },
+  categoryPillActive: { backgroundColor: '#1DB954' },
   categoryText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
   categoryTextActive: { color: '#000' },
   
-  listContainer: { paddingHorizontal: 16 },
-  stationRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#222' },
-  stationLogo: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  listContainer: { paddingHorizontal: 16, paddingBottom: 40, marginTop: 10 },
+  stationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  stationLogo: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
   stationDetails: { flex: 1 },
-  stationName: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  stationDesc: { color: '#888', fontSize: 13 },
-  listPlayBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1DB954', justifyContent: 'center', alignItems: 'center' },
+  stationName: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  stationDesc: { color: '#aaa', fontSize: 13, marginTop: 4 },
+  listPlayBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
 });
