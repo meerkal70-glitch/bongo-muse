@@ -1,56 +1,32 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { clickpesaStatus } from '../_shared/clickpesa.ts';
 
+// ClickPesa webhook (HaloPesa payments).
+// Security: the payload is NEVER trusted for money. We only read the orderReference from it,
+// then ask the ClickPesa API for the real status before awarding credits (exactly once).
 serve(async (req) => {
   try {
-    const payload = await req.json()
-    // payload structure assumed from standard gateways: { orderReference, status, amount }
-    
-    if (!payload.orderReference) {
-      return new Response("Missing order reference", { status: 400 })
+    const payload = await req.json().catch(() => ({}));
+    const orderReference: string | undefined = payload?.data?.orderReference ?? payload?.orderReference;
+    if (!orderReference) return new Response('Missing order reference', { status: 400 });
+
+    const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    const { data: tx } = await admin.from('transactions').select('id, status').eq('order_reference', orderReference).maybeSingle();
+    if (!tx) return new Response(JSON.stringify({ received: true, note: 'unknown reference' }), { status: 200 });
+    if (tx.status === 'completed') return new Response(JSON.stringify({ received: true }), { status: 200 });
+
+    const c = await clickpesaStatus(orderReference);
+    if (!c.ok) return new Response('Could not verify payment', { status: 502 });
+
+    if (c.state === 'completed') {
+      const { error } = await admin.rpc('award_transaction_credits', { p_tx: tx.id });
+      if (error) return new Response('Award error', { status: 500 });
+    } else if (c.state === 'failed') {
+      await admin.from('transactions').update({ status: 'failed', error_message: 'Payment failed' }).eq('id', tx.id).eq('status', 'pending');
     }
-
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Check if payment was successful
-    if (payload.status === 'SUCCESS' || payload.state === 'COMPLETED' || payload.status === 'COMPLETED') {
-       
-       // Update transaction to completed
-       const { data: txn, error } = await supabaseAdmin
-           .from('transactions')
-           .update({ status: 'completed' })
-           .eq('id', payload.orderReference)
-           .select()
-           .single()
-           
-       if (error || !txn) {
-           console.error("Transaction update error:", error)
-           return new Response("Transaction error", { status: 500 })
-       }
-
-       // Give user the credits they paid for
-       const { data: profile } = await supabaseAdmin.from('profiles').select('credits').eq('id', txn.user_id).single()
-       
-       // Assuming fixed 500 TZS per credit. If amount is in payload, use it, else default to 1 credit.
-       const creditsBought = payload.amount ? Math.floor(payload.amount / 500) : 1;
-
-       await supabaseAdmin.from('profiles').update({ 
-           credits: (profile?.credits || 0) + creditsBought
-       }).eq('id', txn.user_id)
-       
-       return new Response(JSON.stringify({ received: true, updated: true }), { status: 200 })
-    }
-
-    // Payment failed or pending
-    if (payload.status === 'FAILED') {
-        await supabaseAdmin.from('transactions').update({ status: 'failed' }).eq('id', payload.orderReference)
-    }
-
-    return new Response(JSON.stringify({ received: true, status: 'processed' }), { status: 200 })
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 400 })
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err?.message }), { status: 400 });
   }
-})
+});

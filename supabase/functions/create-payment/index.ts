@@ -1,8 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders, json, snippeKey, normalizePhone, SNIPPE_BASE, PRICE_PER_CREDIT } from '../_shared/snippe.ts';
+import { isHalotel, clickpesaInitiate } from '../_shared/clickpesa.ts';
 
-// Starts a Snippe mobile-money (USSD push) payment for buying credits.
+// Starts a mobile-money (USSD push) payment for buying credits.
+// HaloPesa (Halotel) numbers go through ClickPesa; every other network goes through Snippe.
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -35,13 +37,21 @@ serve(async (req) => {
     // 1) Create our own pending transaction first (the app listens to this row)
     const { data: tx, error: txErr } = await admin
       .from('transactions')
-      .insert({ user_id: user.id, amount, credits_awarded: qty, status: 'pending', phone_number: phone })
+      .insert({ user_id: user.id, amount, credits_awarded: qty, status: 'pending', phone_number: phone, provider: isHalotel(phone) ? 'clickpesa' : 'snippe' })
       .select('id')
       .single();
     if (txErr || !tx) throw new Error('Could not start the payment. Please try again.');
     txId = tx.id;
 
-    // 2) Ask Snippe to push the USSD prompt to the customer's phone
+    // 2a) HaloPesa -> ClickPesa
+    if (isHalotel(phone)) {
+      const orderReference = 'BS' + tx.id.replace(/-/g, '').slice(0, 18).toUpperCase(); // alphanumeric only
+      const cp = await clickpesaInitiate(orderReference, amount, phone);
+      await admin.from('transactions').update({ order_reference: orderReference, clickpesa_reference: cp?.id ?? null, updated_at: new Date().toISOString() }).eq('id', tx.id);
+      return json({ success: true, transactionId: tx.id, message: 'Payment initiated' });
+    }
+
+    // 2b) Everyone else -> Snippe: ask it to push the USSD prompt to the customer's phone
     const res = await fetch(`${SNIPPE_BASE}/v1/payments`, {
       method: 'POST',
       headers: {

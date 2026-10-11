@@ -26,3 +26,8 @@ $$;
 
 revoke all on function public.award_transaction_credits(uuid) from public, anon, authenticated;
 grant execute on function public.award_transaction_credits(uuid) to service_role;
+
+-- Which provider handled each payment: HaloPesa (Halotel) -> clickpesa, everything else -> snippe
+alter table public.transactions add column if not exists provider text;
+update public.transactions set provider = case when order_reference like $$SN%$$ then $$snippe$$ else $$clickpesa$$ end where provider is null;
+alter table public.transactions alter column provider set default $$snippe$$;

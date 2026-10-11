@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders, json, getSnippePayment } from '../_shared/snippe.ts';
+import { clickpesaStatus } from '../_shared/clickpesa.ts';
 
 // Lets a user re-check a pending payment (used by "Verify Missing Payments" in the app).
 serve(async (req) => {
@@ -26,10 +27,17 @@ serve(async (req) => {
     if (tx.status === 'completed') return json({ success: true, message: 'Already processed' });
     if (!tx.order_reference) return json({ success: false, message: 'No payment reference' }, 400);
 
-    const r = await getSnippePayment(tx.order_reference);
-    if (!r.ok) return json({ success: false, message: r.message }, r.status === 404 ? 404 : 400);
+    let status: string;
+    if (tx.provider === 'clickpesa') {
+      const c = await clickpesaStatus(tx.order_reference);
+      if (!c.ok) return json({ success: false, message: c.message }, c.status === 404 ? 404 : 400);
+      status = c.state; // completed | failed | pending
+    } else {
+      const r = await getSnippePayment(tx.order_reference);
+      if (!r.ok) return json({ success: false, message: r.message }, r.status === 404 ? 404 : 400);
+      status = r.payment?.status;
+    }
 
-    const status = r.payment?.status;
     if (status === 'completed') {
       // Atomic + idempotent: only awards credits the first time
       const { data: awarded, error } = await admin.rpc('award_transaction_credits', { p_tx: tx.id });
