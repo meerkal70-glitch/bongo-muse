@@ -17,7 +17,6 @@ let PitchAlgorithm: any = null;
 
 if (!isExpoGo && Platform.OS !== 'web') {
   try {
-    const tp = require('react-native-track-player');
     TrackPlayer = tp.default;
     Event = tp.Event;
     TPState = tp.State;

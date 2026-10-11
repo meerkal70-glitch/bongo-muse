@@ -29,13 +29,4 @@ if ((global as any).ErrorUtils) {
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-try {
-  if (Constants.appOwnership !== 'expo' && Platform.OS !== 'web') {
-    const TrackPlayer = require('react-native-track-player').default;
-    TrackPlayer.registerPlaybackService(() => require('./service.js'));
-  }
-} catch (e) {
-  console.log("TrackPlayer service registration failed", e);
-}
-
 require('expo-router/entry');
