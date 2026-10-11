@@ -1,269 +1,179 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, FlatList, Platform } from 'react-native';
+// @ts-nocheck
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+
 import { useThemeStore } from '../../store/themeStore';
-import Constants from 'expo-constants';
+import { useAuthStore } from '../../store/authStore';
+import { supabase } from '../../lib/supabase';
 
-let TrackPlayer: any = null;
-let State: any = null;
-let usePlaybackState: any = () => ({ state: 'none' });
+type LiveStation = {
+  id: string;
+  title: string;
+  cover_url: string;
+  listener_count: number;
+  host_id: string;
+  profiles: { display_name: string; username: string };
+};
 
-const isExpoGo = Constants.appOwnership === 'expo';
-
-if (Platform.OS !== 'web' && !isExpoGo) {
-  try {
-    const trackPlayerModule = require('react-native-track-player');
-    TrackPlayer = trackPlayerModule.default;
-    State = trackPlayerModule.State;
-    usePlaybackState = trackPlayerModule.usePlaybackState;
-  } catch (e) {
-    console.warn("TrackPlayer native module not found");
-  }
-}
-
-const CATEGORIES = ['All', 'Favorites', 'Music', 'Gospel', 'News'];
-
-const STATIONS = [
-  { id: 'wasafi', title: 'Wasafi FM 88.9', desc: 'MP3 • 1 listening', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Wasafi_Classic_Baby_Logo.png/600px-Wasafi_Classic_Baby_Logo.png', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
-  { id: 'clouds', title: 'Clouds FM', desc: 'MP3 • 128 kbps', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/c/c2/Clouds_FM_Logo.jpg/220px-Clouds_FM_Logo.jpg', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
-  { id: 'radiomaria', title: 'RADIO MARIA TANZANIA', desc: 'AAC+ • 32 kbps', logo: 'https://www.radiomaria.tz/wp-content/uploads/2021/04/Logo-Radio-Maria-Tanzania.png', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
-  { id: 'eastafrica', title: 'East Africa Radio', desc: 'MP3 • 64 kbps', logo: 'https://ea-radio.vercel.app/logo.png', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
-];
-
-export default function FMRadioScreen() {
+export default function RadioScreen() {
   const { COLORS } = useThemeStore();
+  const styles = getStyles(COLORS);
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [activeCategory, setActiveCategory] = useState('All');
+  const profile = useAuthStore(s => s.profile);
   
-  const playbackState = usePlaybackState();
-  const [currentStation, setCurrentStation] = useState<any>(null);
+  const [stations, setStations] = useState<LiveStation[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+  useEffect(() => {
+    fetchStations();
 
-  // Fallback player for Expo Go
-  const [expoPlayer, setExpoPlayer] = useState<any>(null);
+    const channel = supabase.channel('public:live_stations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_stations' }, () => {
+        fetchStations();
+      })
+      .subscribe();
 
-  const playStation = async (station: any) => {
-    setCurrentStation(station);
-    
-    if (Platform.OS === 'web') {
-      alert("Audio streaming is not supported on web in this environment yet.");
-      return;
-    }
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
-    if (!TrackPlayer) {
-      // Use expo-audio fallback for Expo Go
-      if (expoPlayer) {
-        expoPlayer.pause();
-      }
-      try {
-        const { createAudioPlayer } = require('expo-audio');
-        const newPlayer = createAudioPlayer(station.streamUrl);
-        newPlayer.play();
-        setExpoPlayer(newPlayer);
-      } catch (e) {
-        alert("Could not load expo-audio fallback.");
-      }
-      return;
-    }
-
-    try {
-      await TrackPlayer.reset();
-      await TrackPlayer.add({
-        id: station.id,
-        url: station.streamUrl,
-        title: station.title,
-        artist: 'Live Radio',
-        artwork: station.logo,
-      });
-      await TrackPlayer.play();
-    } catch(e) { console.error(e); }
+  const fetchStations = async () => {
+    const { data, error } = await supabase
+      .from('live_stations')
+      .select('*, profiles(display_name, username)')
+      .eq('status', 'live')
+      .order('listener_count', { ascending: false });
+      
+    if (data) setStations(data as any);
+    setLoading(false);
   };
 
-  const togglePlay = async () => {
-    if (Platform.OS === 'web') {
-      alert("Audio streaming is not supported on web in this environment yet.");
-      return;
-    }
+  const handleStartBroadcast = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (!profile) return Alert.alert("Hold on", "You need to log in to start a broadcast.");
 
-    if (!TrackPlayer) {
-      if (expoPlayer) {
-        if (expoPlayer.playing) {
-          expoPlayer.pause();
-        } else {
-          expoPlayer.play();
+    Alert.prompt(
+      "Start Live Broadcast",
+      "Give your station a catchy name:",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Go Live", 
+          onPress: async (title) => {
+            if (!title) return;
+            const { data, error } = await supabase.from('live_stations').insert({
+              host_id: profile.id,
+              title,
+              cover_url: profile.avatar_url,
+              status: 'live'
+            }).select().single();
+            
+            if (error) {
+              Alert.alert("Error", "Could not start broadcast.");
+            } else {
+              router.push(`/station/${data.id}`);
+            }
+          }
         }
-      } else {
-        if (currentStation) {
-          playStation(currentStation);
-        } else {
-          playStation(STATIONS[0]);
-        }
-      }
-      return;
-    }
-
-    if (isPlaying) {
-      await TrackPlayer.pause();
-    } else {
-      if (currentStation) {
-        await TrackPlayer.play();
-      } else {
-        playStation(STATIONS[0]);
-      }
-    }
+      ]
+    );
   };
+
+  const renderStation = ({ item }: { item: LiveStation }) => (
+    <TouchableOpacity 
+      style={styles.stationCard} 
+      activeOpacity={0.8}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        router.push(`/station/${item.id}`);
+      }}
+    >
+      <View style={styles.coverWrapper}>
+        {item.cover_url ? (
+          <Image source={{ uri: item.cover_url }} style={styles.coverImage} />
+        ) : (
+          <View style={[styles.coverImage, { backgroundColor: COLORS.cardAlt, justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="radio" size={40} color={COLORS.textSecondary} />
+          </View>
+        )}
+        <View style={styles.liveBadge}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>LIVE</Text>
+        </View>
+        <View style={styles.listenersBadge}>
+          <Ionicons name="people" size={12} color="#FFF" />
+          <Text style={styles.listenersText}>{item.listener_count}</Text>
+        </View>
+      </View>
+      <View style={styles.stationInfo}>
+        <Text style={styles.stationTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.hostName} numberOfLines={1}>Host: {item.profiles?.display_name || item.profiles?.username}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 20) }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-        
-        {/* Top Player Area */}
-        <View style={styles.topPlayerArea}>
-          <Text style={styles.liveText}>LIVE</Text>
-          <View style={styles.listenerCount}>
-            <Ionicons name="people" size={12} color="#aaa" />
-            <Text style={styles.listenerText}>{currentStation ? '1 listening' : 'Not playing'}</Text>
-          </View>
-
-          <View style={styles.controlsRow}>
-            <TouchableOpacity><Ionicons name="heart-outline" size={28} color="#aaa" /></TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.mainPlayBtn}
-              onPress={togglePlay}
-            >
-              {playbackState.state === State.Buffering ? (
-                <Ionicons name="ellipsis-horizontal" size={36} color="#000" />
-              ) : (
-                <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="#000" />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity><Ionicons name="moon-outline" size={28} color="#aaa" /></TouchableOpacity>
-          </View>
-
-          <View style={styles.sleepTimerRow}>
-            <Text style={styles.sleepTimerText}>Sleep timer</Text>
-            {['15m', '30m', '60m'].map(t => (
-              <TouchableOpacity key={t} style={styles.timerPill}>
-                <Text style={styles.timerPillText}>{t}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Featured Card */}
-        <TouchableOpacity style={styles.featuredCard} onPress={() => playStation({ id: 'ai', title: 'Bongo AI Radio', logo: '', streamUrl: 'https://icecast.omnycontent.com/fallback' })}>
-          <View style={styles.featuredIconBox}>
-            <Ionicons name="musical-notes" size={24} color="#FFF" />
-          </View>
-          <View style={styles.featuredInfo}>
-            <Text style={styles.featuredTitle}>Bongo AI Radio</Text>
-            <Text style={styles.featuredDesc}>Non-stop AI songs made on Bongo</Text>
-          </View>
-          <TouchableOpacity style={styles.featuredPlay} onPress={() => playStation({ id: 'ai', title: 'Bongo AI Radio', logo: '', streamUrl: 'https://icecast.omnycontent.com/fallback' })}>
-            <Ionicons name={currentStation?.id === 'ai' && isPlaying ? "pause" : "play"} size={20} color="#1DB954" />
-          </TouchableOpacity>
+      <View style={styles.header}>
+        <Text style={styles.title}>Live Radio</Text>
+        <TouchableOpacity style={styles.goLiveBtn} onPress={handleStartBroadcast}>
+          <Ionicons name="radio" size={18} color={COLORS.black} />
+          <Text style={styles.goLiveText}>Go Live</Text>
         </TouchableOpacity>
+      </View>
 
-        {/* Recently Played */}
-        <Text style={styles.sectionTitle}>Recently played</Text>
-        <View style={styles.recentItem}>
-          <View style={[styles.recentCircle, { backgroundColor: '#FFF', overflow: 'hidden' }]}>
-            <Image source={{ uri: STATIONS[0].logo }} style={{ width: '100%', height: '100%' }} contentFit="contain" />
-          </View>
-          <Text style={styles.recentText} numberOfLines={1}>{STATIONS[0].title}</Text>
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} size="large" color={COLORS.gold} />
+      ) : stations.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="planet" size={60} color={COLORS.textSecondary} />
+          <Text style={styles.emptyTitle}>It's quiet here...</Text>
+          <Text style={styles.emptyDesc}>No one is broadcasting right now. Be the first to start a live session!</Text>
         </View>
-
-        {/* Search */}
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={20} color="#888" />
-          <TextInput 
-            placeholder="Search stations" 
-            placeholderTextColor="#888"
-            style={styles.searchInput}
-          />
-        </View>
-
-        {/* Categories */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-          {CATEGORIES.map(cat => (
-            <TouchableOpacity 
-              key={cat} 
-              style={[styles.categoryPill, activeCategory === cat && styles.categoryPillActive]}
-              onPress={() => setActiveCategory(cat)}
-            >
-              <Text style={[styles.categoryText, activeCategory === cat && styles.categoryTextActive]}>{cat}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Station List */}
-        <View style={styles.listContainer}>
-          {STATIONS.map(station => (
-            <TouchableOpacity key={station.id} style={styles.stationRow} onPress={() => playStation(station)}>
-              <View style={[styles.stationLogo, { backgroundColor: '#FFF', overflow: 'hidden' }]}>
-                 <Image source={{ uri: station.logo }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-              </View>
-              <View style={styles.stationDetails}>
-                <Text style={[styles.stationName, currentStation?.id === station.id && { color: '#1DB954' }]}>{station.title}</Text>
-                <Text style={styles.stationDesc}>{station.desc}</Text>
-              </View>
-              <TouchableOpacity style={{ marginRight: 16 }}>
-                <Ionicons name="heart-outline" size={24} color="#888" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.listPlayBtn} onPress={() => playStation(station)}>
-                <Ionicons name={currentStation?.id === station.id && isPlaying ? "pause" : "play"} size={16} color="#000" />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-      </ScrollView>
+      ) : (
+        <FlatList
+          data={stations}
+          keyExtractor={(item) => item.id}
+          renderItem={renderStation}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          numColumns={2}
+          columnWrapperStyle={{ gap: 16 }}
+        />
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#090909' },
-  topPlayerArea: { alignItems: 'center', paddingVertical: 20 },
-  liveText: { color: '#FFF', fontSize: 14, fontWeight: '700', letterSpacing: 1 },
-  listenerCount: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  listenerText: { color: '#aaa', fontSize: 13 },
-  controlsRow: { flexDirection: 'row', alignItems: 'center', gap: 40, marginVertical: 20 },
-  mainPlayBtn: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#1DB954', justifyContent: 'center', alignItems: 'center' },
-  sleepTimerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  sleepTimerText: { color: '#aaa', fontSize: 14 },
-  timerPill: { borderWidth: 1, borderColor: '#555', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
-  timerPillText: { color: '#FFF', fontSize: 12 },
+const getStyles = (COLORS: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.black },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16 },
+  title: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary },
+  goLiveBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.gold, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, gap: 6 },
+  goLiveText: { fontSize: 14, fontWeight: '700', color: COLORS.black },
   
-  featuredCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#181818', marginHorizontal: 16, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#1DB954' },
-  featuredIconBox: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  featuredInfo: { flex: 1 },
-  featuredTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  featuredDesc: { color: '#aaa', fontSize: 12, marginTop: 2 },
-  featuredPlay: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(29,185,84,0.2)', justifyContent: 'center', alignItems: 'center' },
+  listContent: { paddingHorizontal: 16, paddingBottom: 100, gap: 16 },
+  stationCard: { flex: 1, backgroundColor: COLORS.card, borderRadius: 16, overflow: 'hidden' },
+  coverWrapper: { width: '100%', aspectRatio: 1, position: 'relative' },
+  coverImage: { width: '100%', height: '100%' },
+  liveBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(255, 59, 48, 0.9)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFF' },
+  liveText: { color: '#FFF', fontSize: 10, fontWeight: '800' },
+  listenersBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.7)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 },
+  listenersText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
   
-  sectionTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginHorizontal: 16, marginTop: 24, marginBottom: 16 },
-  recentItem: { marginHorizontal: 16, width: 70, alignItems: 'center' },
-  recentCircle: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  recentText: { color: '#aaa', fontSize: 12 },
+  stationInfo: { padding: 12 },
+  stationTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 4 },
+  hostName: { fontSize: 13, color: COLORS.textSecondary },
   
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#222', marginHorizontal: 16, marginTop: 24, paddingHorizontal: 12, height: 46, borderRadius: 8, gap: 8 },
-  searchInput: { flex: 1, color: '#FFF', fontSize: 16 },
-  
-  categoriesScroll: { marginTop: 16, paddingHorizontal: 16, marginBottom: 16 },
-  categoryPill: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#444', marginRight: 10 },
-  categoryPillActive: { backgroundColor: '#1DB954', borderColor: '#1DB954' },
-  categoryText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
-  categoryTextActive: { color: '#000' },
-  
-  listContainer: { paddingHorizontal: 16 },
-  stationRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#222' },
-  stationLogo: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  stationDetails: { flex: 1 },
-  stationName: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  stationDesc: { color: '#888', fontSize: 13 },
-  listPlayBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1DB954', justifyContent: 'center', alignItems: 'center' },
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary, marginTop: 16 },
+  emptyDesc: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20 },
 });
