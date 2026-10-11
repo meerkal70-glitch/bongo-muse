@@ -19,10 +19,10 @@ if (Platform.OS !== 'web') {
 const CATEGORIES = ['All', 'Favorites', 'Music', 'Gospel', 'News'];
 
 const STATIONS = [
-  { id: 'wasafi', title: 'Wasafi FM 88.9', desc: 'MP3 • 1 listening', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Wasafi_Classic_Baby_Logo.png/600px-Wasafi_Classic_Baby_Logo.png', streamUrl: 'https://icecast.omnycontent.com/fallback' },
-  { id: 'clouds', title: 'Clouds FM', desc: 'MP3 • 128 kbps', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/c/c2/Clouds_FM_Logo.jpg/220px-Clouds_FM_Logo.jpg', streamUrl: 'https://icecast.omnycontent.com/fallback' },
-  { id: 'radiomaria', title: 'RADIO MARIA TANZANIA', desc: 'AAC+ • 32 kbps', logo: 'https://www.radiomaria.tz/wp-content/uploads/2021/04/Logo-Radio-Maria-Tanzania.png', streamUrl: 'https://icecast.omnycontent.com/fallback' },
-  { id: 'eastafrica', title: 'East Africa Radio', desc: 'MP3 • 64 kbps', logo: 'https://ea-radio.vercel.app/logo.png', streamUrl: 'https://icecast.omnycontent.com/fallback' },
+  { id: 'wasafi', title: 'Wasafi FM 88.9', desc: 'MP3 • 1 listening', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Wasafi_Classic_Baby_Logo.png/600px-Wasafi_Classic_Baby_Logo.png', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
+  { id: 'clouds', title: 'Clouds FM', desc: 'MP3 • 128 kbps', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/c/c2/Clouds_FM_Logo.jpg/220px-Clouds_FM_Logo.jpg', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
+  { id: 'radiomaria', title: 'RADIO MARIA TANZANIA', desc: 'AAC+ • 32 kbps', logo: 'https://www.radiomaria.tz/wp-content/uploads/2021/04/Logo-Radio-Maria-Tanzania.png', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
+  { id: 'eastafrica', title: 'East Africa Radio', desc: 'MP3 • 64 kbps', logo: 'https://ea-radio.vercel.app/logo.png', streamUrl: 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service' },
 ];
 
 export default function FMRadioScreen() {
