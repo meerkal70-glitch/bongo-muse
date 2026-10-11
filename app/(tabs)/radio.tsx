@@ -40,7 +40,7 @@ export default function FMRadioScreen() {
   const playbackState = usePlaybackState();
   const [currentStation, setCurrentStation] = useState<any>(null);
 
-  const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+  const isPlaying = playbackState?.state && State ? (playbackState.state === State.Playing || playbackState.state === State.Buffering) : false;
 
   // Fallback player for Expo Go
   const [expoPlayer, setExpoPlayer] = useState<any>(null);
@@ -134,7 +134,7 @@ export default function FMRadioScreen() {
               style={styles.mainPlayBtn}
               onPress={togglePlay}
             >
-              {playbackState.state === State.Buffering ? (
+              {playbackState?.state && State && playbackState.state === State.Buffering ? (
                 <Ionicons name="ellipsis-horizontal" size={36} color="#000" />
               ) : (
                 <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="#000" />
