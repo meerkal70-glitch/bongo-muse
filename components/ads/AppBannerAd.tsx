@@ -1,11 +1,18 @@
 // @ts-nocheck
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 
 export default function AppBannerAd() {
+  const adUnitId = __DEV__ ? TestIds.BANNER : (Platform.OS === 'ios' ? 'ca-app-pub-xxxxxxxxxxxxx/yyyyyyyyyy' : 'ca-app-pub-xxxxxxxxxxxxx/zzzzzzzzzz'); // Replace with real ID later
+
   return (
     <View style={styles.container}>
-      {/* Ads disabled for Expo Go */}
+      <BannerAd
+        unitId={adUnitId}
+        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+      />
     </View>
   );
 }
@@ -19,4 +26,3 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
 });
-
