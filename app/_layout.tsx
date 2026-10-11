@@ -58,7 +58,7 @@ function RootLayout() {
 
   useEffect(() => {
     useAuthStore.getState().init();
-    usePlayerStore.getState().initPlayer();
+    usePlayerStore.getState().initPlayer?.();
     
     // Force allow screenshots globally in case the native flag is stuck from hot-reloading
     try {
