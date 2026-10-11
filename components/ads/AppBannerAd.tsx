@@ -13,25 +13,8 @@ if (Platform.OS !== 'web') {
 }
 
 export default function AppBannerAd() {
-  if (Platform.OS === 'web' || !BannerAd) {
-    return (
-      <View style={[styles.container, { height: 50, backgroundColor: '#222' }]}>
-        <Text style={{ color: '#888', fontSize: 12 }}>Ad Space (Disabled on Web)</Text>
-      </View>
-    );
-  }
-
-  const adUnitId = __DEV__ ? TestIds.BANNER : (Platform.OS === 'ios' ? 'ca-app-pub-xxxxxxxxxxxxx/yyyyyyyyyy' : 'ca-app-pub-xxxxxxxxxxxxx/zzzzzzzzzz'); // Replace with real ID later
-
-  return (
-    <View style={styles.container}>
-      <BannerAd
-        unitId={adUnitId}
-        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-      />
-    </View>
-  );
+  // Ads temporarily disabled for Radio testing
+  return null;
 }
 
 const styles = StyleSheet.create({
