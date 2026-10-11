@@ -2,22 +2,20 @@
 import { supabase } from './supabase';
 
 export const getApiConfig = async (): Promise<{ provider: 'suno' | 'kie', apiKey: string, baseUrl: string }> => {
-  const [providerRes, sunoKeyRes, kieKeyRes] = await Promise.all([
+  // The real Kie/Suno key lives only on the server. Requests go through the `ai-proxy` Edge Function,
+  // authenticated with the signed-in user's session token (which the proxy swaps for the provider key).
+  const [providerRes, sessionRes] = await Promise.all([
     supabase.from('system_settings').select('value').eq('key', 'ai_api_provider').single(),
-    supabase.from('system_settings').select('value').eq('key', 'suno_api_key').single(),
-    supabase.from('system_settings').select('value').eq('key', 'kie_api_key').single()
+    supabase.auth.getSession(),
   ]);
 
   const provider = (providerRes.data?.value as 'suno' | 'kie') || 'suno';
-  const apiKey = provider === 'kie' ? kieKeyRes.data?.value : sunoKeyRes.data?.value;
+  const token = sessionRes.data?.session?.access_token;
+  if (!token) throw new Error('Please sign in to use the AI studio.');
 
-  if (!apiKey) {
-    throw new Error(`Could not retrieve API key for ${provider.toUpperCase()}`);
-  }
+  const baseUrl = `${(supabase as any).supabaseUrl}/functions/v1/ai-proxy`;
 
-  const baseUrl = provider === 'kie' ? 'https://api.kie.ai/api/v1' : 'https://api.sunoapi.org/api/v1';
-
-  return { provider, apiKey, baseUrl };
+  return { provider, apiKey: token, baseUrl };
 };
 
 export type SunoTaskStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'SENSITIVE_WORD_ERROR';

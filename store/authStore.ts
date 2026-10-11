@@ -154,6 +154,22 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   signIn: async (email, password) => {
     set({ isLoading: true });
+    // A username (no "@") is resolved on the server so emails are never exposed to the client
+    if (!email.includes('@')) {
+      try {
+        const { data, error } = await supabase.functions.invoke('username-login', { body: { username: email, password } });
+        if (error || !data?.success || !data?.session) {
+          set({ isLoading: false });
+          return data?.error || 'Akaunti haijapatikana (Account not found)';
+        }
+        const { error: sErr } = await supabase.auth.setSession(data.session);
+        set({ isLoading: false });
+        return sErr?.message ?? null;
+      } catch (e: any) {
+        set({ isLoading: false });
+        return 'Akaunti haijapatikana (Account not found)';
+      }
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     set({ isLoading: false });
     return error?.message ?? null;

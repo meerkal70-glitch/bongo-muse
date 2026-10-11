@@ -102,6 +102,10 @@ begin
     if coalesce(new.credits, 0) > coalesce(old.credits, 0) then
       raise exception 'Not allowed: credits can only be added by the server';
     end if;
+    -- the free-lyrics counter may only go up from the client (it is reset by the server on top-up)
+    if coalesce(new.lyrics_used, 0) < coalesce(old.lyrics_used, 0) then
+      raise exception 'Not allowed: lyrics usage is managed by the server';
+    end if;
   end if;
   return new;
 end;

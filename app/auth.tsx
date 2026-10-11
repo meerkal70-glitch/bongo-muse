@@ -48,14 +48,7 @@ export default function AuthScreen() {
         if (/^\+?\d+$/.test(loginEmail)) {
           loginEmail = `${loginEmail}@bongoapp.local`;
         } else {
-          // It's a username lookup
-          const { data: fetchedEmail, error: rpcError } = await import('../lib/supabase').then(m => m.supabase.rpc('get_user_email', { p_username: loginEmail }));
-          if (fetchedEmail) {
-            loginEmail = fetchedEmail;
-          } else {
-            Alert.alert('Kosa', 'Akaunti haijapatikana (Account not found)');
-            return;
-          }
+          // It's a username: signIn() resolves it on the server (no email is exposed to the app)
         }
       }
       
