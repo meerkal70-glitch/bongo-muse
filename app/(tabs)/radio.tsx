@@ -3,8 +3,18 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, FlatLi
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import { useThemeStore } from '../../store/themeStore';
+
+let TrackPlayer: any = null;
+let State: any = null;
+let usePlaybackState: any = () => ({ state: 'none' });
+
+if (Platform.OS !== 'web') {
+  const trackPlayerModule = require('react-native-track-player');
+  TrackPlayer = trackPlayerModule.default;
+  State = trackPlayerModule.State;
+  usePlaybackState = trackPlayerModule.usePlaybackState;
+}
 
 const CATEGORIES = ['All', 'Favorites', 'Music', 'Gospel', 'News'];
 
@@ -27,6 +37,10 @@ export default function FMRadioScreen() {
 
   const playStation = async (station: any) => {
     setCurrentStation(station);
+    if (Platform.OS === 'web') {
+      alert("Audio streaming is not supported on web in this environment yet.");
+      return;
+    }
     await TrackPlayer.reset();
     await TrackPlayer.add({
       id: station.id,
@@ -39,6 +53,10 @@ export default function FMRadioScreen() {
   };
 
   const togglePlay = async () => {
+    if (Platform.OS === 'web') {
+      alert("Audio streaming is not supported on web in this environment yet.");
+      return;
+    }
     if (isPlaying) {
       await TrackPlayer.pause();
     } else {
