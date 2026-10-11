@@ -102,7 +102,8 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="radio"
           options={{
-            title: "Live",
+            title: "Radio",
+            href: ((profile?.role as any) === 'artist' || (profile?.role as any) === 'admin') ? null : '/radio',
             tabBarIcon: ({ color }) => <TabBarIcon name="radio" color={color} />,
           }}
         />
