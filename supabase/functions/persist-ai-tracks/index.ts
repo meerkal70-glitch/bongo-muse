@@ -55,5 +55,20 @@ serve(async (req) => {
     if (Object.keys(patch).length) await admin.from('tracks').update(patch).eq('id', t.id);
     results.push({ id: t.id, note });
   }
-  return new Response(JSON.stringify({ checked: rows?.length ?? 0, results }), { headers: { 'Content-Type': 'application/json' } });
+
+  // Backup step: keep a second copy of each song in the separate `audio-backup` bucket
+  const backed: string[] = [];
+  const { data: need } = await admin.from('tracks_needing_backup').select('id,audio_url').limit(10);
+  for (const t of need ?? []) {
+    try {
+      const r = await fetch(t.audio_url);
+      if (!r.ok) throw new Error(`audio ${r.status}`);
+      const buf = new Uint8Array(await r.arrayBuffer());
+      const { error } = await admin.storage.from('audio-backup').upload(`${t.id}.mp3`, buf, { contentType: 'audio/mpeg', upsert: true });
+      if (error) throw error;
+      await admin.from('track_backups').upsert({ track_id: t.id, size_bytes: buf.length });
+      backed.push(t.id);
+    } catch { /* retried on the next run */ }
+  }
+  return new Response(JSON.stringify({ checked: rows?.length ?? 0, results, backed: backed.length }), { headers: { 'Content-Type': 'application/json' } });
 });

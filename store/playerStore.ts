@@ -562,6 +562,28 @@ if (!_playerListenersRegistered) {
       }
     });
 
+    // If a song fails to load, retry once from its backup copy (separate `audio-backup` bucket)
+    const triedBackup = new Set<string>();
+    TrackPlayer.addEventListener((Event as any).PlaybackError ?? 'playback-error', async () => {
+      const s = usePlayerStore.getState();
+      const t: any = s.currentTrack;
+      if (!t?.id || triedBackup.has(t.id)) return;
+      triedBackup.add(t.id);
+      try {
+        await TrackPlayer.reset();
+        await TrackPlayer.add([{
+          id: t.id,
+          url: `https://gqxdbwnmnqvtdpxnrgtx.supabase.co/storage/v1/object/public/audio-backup/${t.id}.mp3`,
+          title: t.title,
+          artist: t.artist_name || 'Unknown Artist',
+          duration: t.duration_sec,
+          pitchAlgorithm: PitchAlgorithm.Linear,
+        }]);
+        await TrackPlayer.setRate(s.playbackRate);
+        await TrackPlayer.play();
+      } catch (e) { console.log('Backup playback failed:', e); }
+    });
+
     TrackPlayer.addEventListener(Event.PlaybackState, async (event) => {
       notifyPlaybackState(mapTPState(event.state));
     });
