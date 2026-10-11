@@ -4,16 +4,23 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeStore } from '../../store/themeStore';
+import Constants from 'expo-constants';
 
 let TrackPlayer: any = null;
 let State: any = null;
 let usePlaybackState: any = () => ({ state: 'none' });
 
-if (Platform.OS !== 'web') {
-  const trackPlayerModule = require('react-native-track-player');
-  TrackPlayer = trackPlayerModule.default;
-  State = trackPlayerModule.State;
-  usePlaybackState = trackPlayerModule.usePlaybackState;
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (Platform.OS !== 'web' && !isExpoGo) {
+  try {
+    const trackPlayerModule = require('react-native-track-player');
+    TrackPlayer = trackPlayerModule.default;
+    State = trackPlayerModule.State;
+    usePlaybackState = trackPlayerModule.usePlaybackState;
+  } catch (e) {
+    console.warn("TrackPlayer native module not found");
+  }
 }
 
 const CATEGORIES = ['All', 'Favorites', 'Music', 'Gospel', 'News'];
@@ -35,21 +42,44 @@ export default function FMRadioScreen() {
 
   const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
+  // Fallback player for Expo Go
+  const [expoPlayer, setExpoPlayer] = useState<any>(null);
+
   const playStation = async (station: any) => {
     setCurrentStation(station);
+    
     if (Platform.OS === 'web') {
       alert("Audio streaming is not supported on web in this environment yet.");
       return;
     }
-    await TrackPlayer.reset();
-    await TrackPlayer.add({
-      id: station.id,
-      url: station.streamUrl,
-      title: station.title,
-      artist: 'Live Radio',
-      artwork: station.logo,
-    });
-    await TrackPlayer.play();
+
+    if (!TrackPlayer) {
+      // Use expo-audio fallback for Expo Go
+      if (expoPlayer) {
+        expoPlayer.pause();
+      }
+      try {
+        const { createAudioPlayer } = require('expo-audio');
+        const newPlayer = createAudioPlayer(station.streamUrl);
+        newPlayer.play();
+        setExpoPlayer(newPlayer);
+      } catch (e) {
+        alert("Could not load expo-audio fallback.");
+      }
+      return;
+    }
+
+    try {
+      await TrackPlayer.reset();
+      await TrackPlayer.add({
+        id: station.id,
+        url: station.streamUrl,
+        title: station.title,
+        artist: 'Live Radio',
+        artwork: station.logo,
+      });
+      await TrackPlayer.play();
+    } catch(e) { console.error(e); }
   };
 
   const togglePlay = async () => {
@@ -57,6 +87,24 @@ export default function FMRadioScreen() {
       alert("Audio streaming is not supported on web in this environment yet.");
       return;
     }
+
+    if (!TrackPlayer) {
+      if (expoPlayer) {
+        if (expoPlayer.playing) {
+          expoPlayer.pause();
+        } else {
+          expoPlayer.play();
+        }
+      } else {
+        if (currentStation) {
+          playStation(currentStation);
+        } else {
+          playStation(STATIONS[0]);
+        }
+      }
+      return;
+    }
+
     if (isPlaying) {
       await TrackPlayer.pause();
     } else {

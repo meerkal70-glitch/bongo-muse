@@ -1,15 +1,23 @@
 // @ts-nocheck
 import React from 'react';
 import { View, StyleSheet, Platform, Text } from 'react-native';
+import Constants from 'expo-constants';
+
 let BannerAd: any = null;
 let BannerAdSize: any = null;
 let TestIds: any = null;
 
-if (Platform.OS !== 'web') {
-  const admob = require('react-native-google-mobile-ads');
-  BannerAd = admob.BannerAd;
-  BannerAdSize = admob.BannerAdSize;
-  TestIds = admob.TestIds;
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (Platform.OS !== 'web' && !isExpoGo) {
+  try {
+    const admob = require('react-native-google-mobile-ads');
+    BannerAd = admob.BannerAd;
+    BannerAdSize = admob.BannerAdSize;
+    TestIds = admob.TestIds;
+  } catch (e) {
+    console.warn("AdMob native module not found");
+  }
 }
 
 export default function AppBannerAd() {

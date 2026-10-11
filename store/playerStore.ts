@@ -1,17 +1,46 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer, { 
-  Event, 
-  State as TPState, 
-  AppKilledPlaybackBehavior, 
-  Capability, 
-  IOSCategory, 
-  IOSCategoryMode, 
-  IOSCategoryOptions, 
-  PitchAlgorithm 
-} from 'react-native-track-player';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
+const isExpoGo = Constants.appOwnership === 'expo';
+let TrackPlayer: any = null;
+let Event: any = null;
+let TPState: any = null;
+let AppKilledPlaybackBehavior: any = null;
+let Capability: any = null;
+let IOSCategory: any = null;
+let IOSCategoryMode: any = null;
+let IOSCategoryOptions: any = null;
+let PitchAlgorithm: any = null;
+
+if (!isExpoGo && Platform.OS !== 'web') {
+  try {
+    const tp = require('react-native-track-player');
+    TrackPlayer = tp.default;
+    Event = tp.Event;
+    TPState = tp.State;
+    AppKilledPlaybackBehavior = tp.AppKilledPlaybackBehavior;
+    Capability = tp.Capability;
+    IOSCategory = tp.IOSCategory;
+    IOSCategoryMode = tp.IOSCategoryMode;
+    IOSCategoryOptions = tp.IOSCategoryOptions;
+    PitchAlgorithm = tp.PitchAlgorithm;
+  } catch (e) { console.warn("TrackPlayer native module not found"); }
+} else {
+  // Use mock for Expo Go
+  const mock = require('../mocks/TrackPlayerMock');
+  TrackPlayer = mock.default;
+  Event = mock.Event;
+  TPState = mock.State;
+  AppKilledPlaybackBehavior = mock.AppKilledPlaybackBehavior;
+  Capability = mock.Capability;
+  IOSCategory = mock.IOSCategory;
+  IOSCategoryMode = mock.IOSCategoryMode;
+  IOSCategoryOptions = mock.IOSCategoryOptions;
+  PitchAlgorithm = mock.PitchAlgorithm;
+}
 import { Track } from '../constants';
 import { useOfflineStore } from './offlineStore';
 import { useAuthStore } from './authStore';
@@ -34,7 +63,7 @@ export enum State {
   Error = 'error',
 }
 
-function mapTPState(state: TPState): State {
+function mapTPState(state: any): State {
   switch (state) {
     case TPState.Playing: return State.Playing;
     case TPState.Paused: return State.Paused;
