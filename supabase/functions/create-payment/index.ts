@@ -43,12 +43,16 @@ serve(async (req) => {
     if (txErr || !tx) throw new Error('Could not start the payment. Please try again.');
     txId = tx.id;
 
-    // 2a) HaloPesa -> ClickPesa
+    // 2a) HaloPesa -> ClickPesa (if ClickPesa is down, fall back to Snippe below)
     if (isHalotel(phone)) {
-      const orderReference = 'BS' + tx.id.replace(/-/g, '').slice(0, 18).toUpperCase(); // alphanumeric only
-      const cp = await clickpesaInitiate(orderReference, amount, phone);
-      await admin.from('transactions').update({ order_reference: orderReference, clickpesa_reference: cp?.id ?? null, updated_at: new Date().toISOString() }).eq('id', tx.id);
-      return json({ success: true, transactionId: tx.id, message: 'Payment initiated' });
+      try {
+        const orderReference = 'BS' + tx.id.replace(/-/g, '').slice(0, 18).toUpperCase(); // alphanumeric only
+        const cp = await clickpesaInitiate(orderReference, amount, phone);
+        await admin.from('transactions').update({ order_reference: orderReference, clickpesa_reference: cp?.id ?? null, updated_at: new Date().toISOString() }).eq('id', tx.id);
+        return json({ success: true, transactionId: tx.id, message: 'Payment initiated' });
+      } catch (_cpErr) {
+        await admin.from('transactions').update({ provider: 'snippe', updated_at: new Date().toISOString() }).eq('id', tx.id);
+      }
     }
 
     // 2b) Everyone else -> Snippe: ask it to push the USSD prompt to the customer's phone
