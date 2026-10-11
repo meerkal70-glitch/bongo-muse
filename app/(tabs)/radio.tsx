@@ -1,23 +1,54 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, FlatList, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import { useThemeStore } from '../../store/themeStore';
 
 const CATEGORIES = ['All', 'Favorites', 'Music', 'Gospel', 'News'];
 
 const STATIONS = [
-  { id: '1', title: 'Wasafi FM 88.9', desc: 'MP3 • 1 listening', logo: 'W', color: '#E06C3A' },
-  { id: '2', title: 'Clouds FM', desc: 'MP3 • 128 kbps', logo: 'C', color: '#1877F2' },
-  { id: '3', title: 'RADIO MARIA TANZANIA', desc: 'AAC+ • 32 kbps', logo: 'RM', color: '#0F9D58' },
-  { id: '4', title: 'East Africa Radio', desc: 'MP3 • 64 kbps', logo: 'EA', color: '#DB4437' },
+  { id: 'wasafi', title: 'Wasafi FM 88.9', desc: 'MP3 • 1 listening', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Wasafi_Classic_Baby_Logo.png/600px-Wasafi_Classic_Baby_Logo.png', streamUrl: 'https://icecast.omnycontent.com/fallback' },
+  { id: 'clouds', title: 'Clouds FM', desc: 'MP3 • 128 kbps', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/c/c2/Clouds_FM_Logo.jpg/220px-Clouds_FM_Logo.jpg', streamUrl: 'https://icecast.omnycontent.com/fallback' },
+  { id: 'radiomaria', title: 'RADIO MARIA TANZANIA', desc: 'AAC+ • 32 kbps', logo: 'https://www.radiomaria.tz/wp-content/uploads/2021/04/Logo-Radio-Maria-Tanzania.png', streamUrl: 'https://icecast.omnycontent.com/fallback' },
+  { id: 'eastafrica', title: 'East Africa Radio', desc: 'MP3 • 64 kbps', logo: 'https://ea-radio.vercel.app/logo.png', streamUrl: 'https://icecast.omnycontent.com/fallback' },
 ];
 
 export default function FMRadioScreen() {
   const { COLORS } = useThemeStore();
   const insets = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState('All');
-  const [isPlaying, setIsPlaying] = useState(false);
+  
+  const playbackState = usePlaybackState();
+  const [currentStation, setCurrentStation] = useState<any>(null);
+
+  const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+
+  const playStation = async (station: any) => {
+    setCurrentStation(station);
+    await TrackPlayer.reset();
+    await TrackPlayer.add({
+      id: station.id,
+      url: station.streamUrl,
+      title: station.title,
+      artist: 'Live Radio',
+      artwork: station.logo,
+    });
+    await TrackPlayer.play();
+  };
+
+  const togglePlay = async () => {
+    if (isPlaying) {
+      await TrackPlayer.pause();
+    } else {
+      if (currentStation) {
+        await TrackPlayer.play();
+      } else {
+        playStation(STATIONS[0]);
+      }
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 20) }]}>
@@ -28,16 +59,20 @@ export default function FMRadioScreen() {
           <Text style={styles.liveText}>LIVE</Text>
           <View style={styles.listenerCount}>
             <Ionicons name="people" size={12} color="#aaa" />
-            <Text style={styles.listenerText}>1 listening</Text>
+            <Text style={styles.listenerText}>{currentStation ? '1 listening' : 'Not playing'}</Text>
           </View>
 
           <View style={styles.controlsRow}>
             <TouchableOpacity><Ionicons name="heart-outline" size={28} color="#aaa" /></TouchableOpacity>
             <TouchableOpacity 
               style={styles.mainPlayBtn}
-              onPress={() => setIsPlaying(!isPlaying)}
+              onPress={togglePlay}
             >
-              <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="#000" />
+              {playbackState.state === State.Buffering ? (
+                <Ionicons name="ellipsis-horizontal" size={36} color="#000" />
+              ) : (
+                <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="#000" />
+              )}
             </TouchableOpacity>
             <TouchableOpacity><Ionicons name="moon-outline" size={28} color="#aaa" /></TouchableOpacity>
           </View>
@@ -53,7 +88,7 @@ export default function FMRadioScreen() {
         </View>
 
         {/* Featured Card */}
-        <View style={styles.featuredCard}>
+        <TouchableOpacity style={styles.featuredCard} onPress={() => playStation({ id: 'ai', title: 'Bongo AI Radio', logo: '', streamUrl: 'https://icecast.omnycontent.com/fallback' })}>
           <View style={styles.featuredIconBox}>
             <Ionicons name="musical-notes" size={24} color="#FFF" />
           </View>
@@ -61,18 +96,18 @@ export default function FMRadioScreen() {
             <Text style={styles.featuredTitle}>Bongo AI Radio</Text>
             <Text style={styles.featuredDesc}>Non-stop AI songs made on Bongo</Text>
           </View>
-          <TouchableOpacity style={styles.featuredPlay}>
-            <Ionicons name="play" size={20} color="#1DB954" />
+          <TouchableOpacity style={styles.featuredPlay} onPress={() => playStation({ id: 'ai', title: 'Bongo AI Radio', logo: '', streamUrl: 'https://icecast.omnycontent.com/fallback' })}>
+            <Ionicons name={currentStation?.id === 'ai' && isPlaying ? "pause" : "play"} size={20} color="#1DB954" />
           </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
 
         {/* Recently Played */}
         <Text style={styles.sectionTitle}>Recently played</Text>
         <View style={styles.recentItem}>
-          <View style={[styles.recentCircle, { backgroundColor: '#FFF' }]}>
-            <Text style={{ color: '#E06C3A', fontWeight: 'bold', fontSize: 24 }}>W</Text>
+          <View style={[styles.recentCircle, { backgroundColor: '#FFF', overflow: 'hidden' }]}>
+            <Image source={{ uri: STATIONS[0].logo }} style={{ width: '100%', height: '100%' }} contentFit="contain" />
           </View>
-          <Text style={styles.recentText} numberOfLines={1}>Wasafi FM...</Text>
+          <Text style={styles.recentText} numberOfLines={1}>{STATIONS[0].title}</Text>
         </View>
 
         {/* Search */}
@@ -101,21 +136,21 @@ export default function FMRadioScreen() {
         {/* Station List */}
         <View style={styles.listContainer}>
           {STATIONS.map(station => (
-            <View key={station.id} style={styles.stationRow}>
-              <View style={[styles.stationLogo, { backgroundColor: '#FFF' }]}>
-                <Text style={{ color: station.color, fontWeight: '900', fontSize: 20 }}>{station.logo}</Text>
+            <TouchableOpacity key={station.id} style={styles.stationRow} onPress={() => playStation(station)}>
+              <View style={[styles.stationLogo, { backgroundColor: '#FFF', overflow: 'hidden' }]}>
+                 <Image source={{ uri: station.logo }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
               </View>
               <View style={styles.stationDetails}>
-                <Text style={styles.stationName}>{station.title}</Text>
+                <Text style={[styles.stationName, currentStation?.id === station.id && { color: '#1DB954' }]}>{station.title}</Text>
                 <Text style={styles.stationDesc}>{station.desc}</Text>
               </View>
               <TouchableOpacity style={{ marginRight: 16 }}>
                 <Ionicons name="heart-outline" size={24} color="#888" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.listPlayBtn}>
-                <Ionicons name="play" size={16} color="#000" />
+              <TouchableOpacity style={styles.listPlayBtn} onPress={() => playStation(station)}>
+                <Ionicons name={currentStation?.id === station.id && isPlaying ? "pause" : "play"} size={16} color="#000" />
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
 
