@@ -10,6 +10,9 @@ serve(async (req) => {
 
   const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
   let txId: string | null = null;
+  // ClickPesa is OFF by default (everything goes through Snippe). To re-enable HaloPesa via ClickPesa,
+  // set the Supabase secret USE_CLICKPESA=1.
+  const useClickpesa = Deno.env.get('USE_CLICKPESA') === '1';
 
   try {
     const { phoneNumber, credits } = await req.json();
@@ -37,14 +40,14 @@ serve(async (req) => {
     // 1) Create our own pending transaction first (the app listens to this row)
     const { data: tx, error: txErr } = await admin
       .from('transactions')
-      .insert({ user_id: user.id, amount, credits_awarded: qty, status: 'pending', phone_number: phone, provider: isHalotel(phone) ? 'clickpesa' : 'snippe' })
+      .insert({ user_id: user.id, amount, credits_awarded: qty, status: 'pending', phone_number: phone, provider: useClickpesa && isHalotel(phone) ? 'clickpesa' : 'snippe' })
       .select('id')
       .single();
     if (txErr || !tx) throw new Error('Could not start the payment. Please try again.');
     txId = tx.id;
 
     // 2a) HaloPesa -> ClickPesa (if ClickPesa is down, fall back to Snippe below)
-    if (isHalotel(phone)) {
+    if (useClickpesa && isHalotel(phone)) {
       try {
         const orderReference = 'BS' + tx.id.replace(/-/g, '').slice(0, 18).toUpperCase(); // alphanumeric only
         const cp = await clickpesaInitiate(orderReference, amount, phone);
