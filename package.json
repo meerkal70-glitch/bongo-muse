@@ -19,7 +19,6 @@
     "expo-build-properties": "~57.0.22",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.19",
-    "expo-dev-client": "~57.0.19",
     "expo-device": "~57.0.2",
     "expo-document-picker": "~57.0.3",
     "expo-file-system": "~57.0.7",
@@ -52,8 +51,6 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
-    "react-native-track-player": "^5.0.0-alpha0-nightly-cad7f4b0cdea1ab20fd988debcfdbdced7907a39",
-    "react-native-google-mobile-ads": "^14.2.2",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-view-shot": "5.1.0",
     "zustand": "^5.0.3"
