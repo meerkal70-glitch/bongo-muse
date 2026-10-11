@@ -172,7 +172,7 @@ export default function AdminDashboardScreen() {
                 <View style={[styles.badgeIcon, { backgroundColor: `${COLORS.gold}25` }]}>
                   <Ionicons name="wallet" size={18} color={COLORS.gold} />
                 </View>
-                <Text style={styles.heroLabel}>ClickPesa Revenue</Text>
+                <Text style={styles.heroLabel}>Revenue</Text>
               </View>
               <AnimatedNumber value={stats.revenue_total} formatter={tzs} style={styles.heroValue} />
               <Text style={styles.mutedSmall}>All-time · completed payments only</Text>

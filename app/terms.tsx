@@ -28,7 +28,7 @@ export default function TermsScreen() {
         <Text style={styles.paragraph}>Bongo Stream provides an "AI Studio" feature powered by Meta's Llama 3 (via Groq). By using this feature, you agree that lyrics generated are for your personal use. You are responsible for ensuring the generated content does not violate any third-party rights.</Text>
 
         <Text style={styles.sectionTitle}>5. In-App Credits</Text>
-        <Text style={styles.paragraph}>Certain features, such as the AI Studio, require in-app credits. Credits can be purchased via ClickPesa. All purchases are final and non-refundable. Bongo Stream reserves the right to modify the cost of AI generations at any time.</Text>
+        <Text style={styles.paragraph}>Certain features, such as the AI Studio, require in-app credits. Credits can be purchased with mobile money. All purchases are final and non-refundable. Bongo Stream reserves the right to modify the cost of AI generations at any time.</Text>
 
         <Text style={styles.sectionTitle}>6. Artist Upgrades & Content Rights</Text>
         <Text style={styles.paragraph}>Any user may choose to upgrade their account to an "Artist" profile. By upgrading and publishing tracks, you represent and warrant that you own or have the necessary licenses, rights, and permissions to publish the audio files you upload. You maintain full control over your content and may permanently delete your published songs at any time.</Text>
