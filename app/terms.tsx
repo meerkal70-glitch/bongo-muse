@@ -43,6 +43,9 @@ export default function TermsScreen() {
         <Text style={styles.paragraph}>Bongo Stream reserves the right at any time and from time to time to modify or discontinue, temporarily or permanently, the Service (or any part thereof) with or without notice.</Text>
         <Text style={styles.sectionTitle}>10. Privacy Policy</Text>
         <Text style={styles.paragraph}>We collect minimal personal data necessary for account creation and functionality (e.g. usernames, generated audio samples). We do not share your personal information with third parties except as necessary to provide our services (e.g. payment processing, AI generation via external APIs like Groq). By using our services, you consent to the collection and use of this information.</Text>
+        
+        <Text style={styles.sectionTitle}>11. FM Radio Tuner</Text>
+        <Text style={styles.paragraph}>Bongo Stream provides an FM Radio tuner feature that streams publicly available radio stations. Bongo Stream does not own, endorse, or control the content broadcasted by these third-party stations. We are not responsible for any copyright infringements, opinions, or inappropriate content played on these external streams.</Text>
       </ScrollView>
     </View>
   );
