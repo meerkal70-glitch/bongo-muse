@@ -404,6 +404,23 @@ export default function PlayerScreen() {
           }
         },
         { 
+          text: "Maudhui Machafu (Offensive / Sexual Content)", 
+          style: "destructive",
+          onPress: async () => {
+            const { reportContent } = require('../lib/contentSafety');
+            const res = await reportContent({
+              kind: (currentTrack as any)?.is_ai_generated || (currentTrack as any)?.isAI ? 'ai_song' : 'track',
+              reason: 'Sexual, violent or offensive content',
+              trackId: currentTrack?.id,
+              imageUrl: (currentTrack as any)?.cover_url,
+            });
+            Alert.alert(
+              res.ok ? "Asante (Thank you)" : "Kosa (Error)",
+              res.ok ? "Ripoti yako imepokelewa na itachunguzwa. (Your report was received and will be reviewed.)" : (res.error || "Try again later."),
+            );
+          }
+        },
+        { 
           text: "Hakimiliki (Copyright)", 
           style: "destructive",
           onPress: async () => {

@@ -36,6 +36,7 @@ import { useThemeStore } from "../../store/themeStore";
 import { useAIStore } from "../../store/aiStore";
 import { useAuthStore } from "../../store/authStore";
 import { supabase } from "../../lib/supabase";
+import { reportContent, REPORT_REASONS } from "../../lib/contentSafety";
 import {
   generateSunoTrack,
   generateLyrics,
@@ -3910,9 +3911,31 @@ Status: ${selectedSongTask?.status || "Unknown"}`,
                         style={[styles.optionItem, { borderRadius: 0 }]}
                         onPress={() => {
                           setIsSongOptionsOpen(false);
+                          const t = selectedSongTask?.tracks?.[0] || selectedSongTask;
                           Alert.alert(
-                            "Reported",
-                            "Thanks for keeping the community safe.",
+                            "Report AI content",
+                            "Why is this song or its cover offensive?",
+                            [
+                              ...REPORT_REASONS.map((reason) => ({
+                                text: reason,
+                                onPress: async () => {
+                                  const res = await reportContent({
+                                    kind: "ai_song",
+                                    reason,
+                                    trackId: t?.id || null,
+                                    imageUrl: t?.imageUrl || t?.cover_url || null,
+                                    prompt: t?.prompt || t?.title || null,
+                                  });
+                                  Alert.alert(
+                                    res.ok ? "Reported" : "Report failed",
+                                    res.ok
+                                      ? "Thanks for keeping the community safe. Our team will review it."
+                                      : "We couldn't send the report right now. Please try again.",
+                                  );
+                                },
+                              })),
+                              { text: "Cancel", style: "cancel" as const },
+                            ],
                           );
                         }}
                       >

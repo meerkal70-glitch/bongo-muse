@@ -632,7 +632,7 @@ if (!_playerListenersRegistered) {
         await TrackPlayer.reset();
         await TrackPlayer.add([{
           id: t.id,
-          url: `https://gqxdbwnmnqvtdpxnrgtx.supabase.co/storage/v1/object/public/audio-backup/${t.id}.mp3`,
+          url: `https://bongo-cdn.meerkal70.workers.dev/storage/v1/object/public/audio-backup/${t.id}.mp3`,
           title: t.title,
           artist: t.artist_name || 'Unknown Artist',
           duration: t.duration_sec,

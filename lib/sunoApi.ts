@@ -1163,8 +1163,10 @@ export const generateCoverImage = async (
 ): Promise<CoverImage[]> => {
   const cleanPrompt = prompt.replace(/\s+/g, ' ').trim().slice(0, 400);
   if (!cleanPrompt) throw new Error('Please describe the cover you want.');
+  const { isUnsafePrompt, UNSAFE_PROMPT_MESSAGE, SAFE_IMAGE_SUFFIX } = require('./contentSafety');
+  if (isUnsafePrompt(cleanPrompt)) throw new Error(UNSAFE_PROMPT_MESSAGE);
 
-  const fullPrompt = `${cleanPrompt}, square album cover artwork, highly detailed, no text, no watermark`;
+  const fullPrompt = `${cleanPrompt}, square album cover artwork, highly detailed, no text, no watermark, ${SAFE_IMAGE_SUFFIX}`;
   const encoded = encodeURIComponent(fullPrompt);
 
   const images: CoverImage[] = [];
@@ -1172,7 +1174,7 @@ export const generateCoverImage = async (
 
   for (let i = 0; i < count; i++) {
     const seed = Math.floor(Math.random() * 1_000_000_000);
-    const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&seed=${seed}&model=flux&nologo=true`;
+    const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&seed=${seed}&model=flux&nologo=true&safe=true&private=true`;
     try {
       const img = await downloadCover(url);
       images.push(img);

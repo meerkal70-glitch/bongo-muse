@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useAIStore } from '../store/aiStore';
 import { generateCoverImage, CoverImage } from '../lib/sunoApi';
+import { reportContent, REPORT_REASONS } from '../lib/contentSafety';
 
 const { width } = Dimensions.get('window');
 const MAX_PROMPT = 300;
@@ -26,7 +27,7 @@ const STYLE_PRESETS: { key: string; icon: keyof typeof Ionicons.glyphMap; text: 
   { key: 'Neon', icon: 'flash', text: 'neon glow synthwave' },
   { key: 'Minimal', icon: 'ellipse-outline', text: 'minimalist clean design' },
   { key: 'Watercolor', icon: 'brush', text: 'soft watercolor painting' },
-  { key: 'Photo', icon: 'camera', text: 'photorealistic photography' },
+  { key: 'Photo', icon: 'camera', text: 'photorealistic landscape photography' },
   { key: 'Afro', icon: 'sunny', text: 'african art patterns, warm earthy tones' },
 ];
 
@@ -148,6 +149,35 @@ export const CoverArtModal: React.FC<CoverArtModalProps> = ({ visible, onClose, 
     setActiveIndex(Math.round(event.nativeEvent.contentOffset.x / slideSize));
   };
 
+  /** Report an offensive AI image: removed from the screen at once, logged for admins. */
+  const handleReportImage = (img: CoverImage) => {
+    const remove = () => {
+      setGeneratedImages(prev => prev.filter(i => i.uri !== img.uri));
+      setActiveIndex(0);
+    };
+    Alert.alert(
+      'Report this image',
+      'Why is this AI-generated image offensive?',
+      [
+        ...REPORT_REASONS.map(reason => ({
+          text: reason,
+          onPress: async () => {
+            remove();
+            const trackId = songTask?.tracks?.[0]?.id || songTask?.id || null;
+            const res = await reportContent({ kind: 'ai_cover', reason, trackId, imageUrl: img.remoteUrl, prompt });
+            Alert.alert(
+              res.ok ? 'Thanks for reporting' : 'Image removed',
+              res.ok
+                ? 'The image was removed and our team will review it.'
+                : 'The image was removed. We could not send the report right now, please try again later.',
+            );
+          },
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ],
+    );
+  };
+
   const songTitle = songTask?.tracks?.[0]?.title || songTask?.title || 'Unknown';
   const canGenerate = prompt.trim().length > 0 && !isGenerating;
   const hasImages = generatedImages.length > 0;
@@ -199,6 +229,16 @@ export const CoverArtModal: React.FC<CoverArtModalProps> = ({ visible, onClose, 
                       <View style={styles.optionBadge}>
                         <Text style={styles.optionBadgeText}>Option {index + 1}</Text>
                       </View>
+                      <TouchableOpacity
+                        id={`cover-report-${index}`}
+                        accessibilityLabel="Report this image"
+                        style={styles.reportBtn}
+                        onPress={() => handleReportImage(img)}
+                        hitSlop={8}
+                      >
+                        <Ionicons name="flag" size={14} color="#FFF" />
+                        <Text style={styles.reportBtnText}>Report</Text>
+                      </TouchableOpacity>
                     </View>
                   ))}
                   {showPendingSlide && (
@@ -488,6 +528,25 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 12,
     fontWeight: '600',
+  },
+  reportBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  reportBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   pendingSlide: {
     backgroundColor: '#17171A',

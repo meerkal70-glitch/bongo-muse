@@ -47,7 +47,9 @@ export default function AdminGenresScreen() {
       const prompt = imagePrompt.trim() 
         ? imagePrompt.trim() 
         : `A highly aesthetic, vibrant, abstract album cover representing the music genre: ${name.trim()}. High quality, 4k, digital art`;
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true`;
+      const { isUnsafePrompt, UNSAFE_PROMPT_MESSAGE, SAFE_IMAGE_SUFFIX } = require('../../lib/contentSafety');
+      if (isUnsafePrompt(prompt)) throw new Error(UNSAFE_PROMPT_MESSAGE);
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(`${prompt}, ${SAFE_IMAGE_SUFFIX}`)}?width=512&height=512&nologo=true&safe=true&private=true`;
       setImageUrl(url);
     } catch (err: any) {
       Alert.alert('Generation Error', err.message);

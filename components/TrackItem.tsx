@@ -54,13 +54,23 @@ export default function TrackItem({ track, isPlaying, onPress, onArtistPress, on
   };
 
   const handleReport = () => {
+    const { reportContent, REPORT_REASONS } = require('../lib/contentSafety');
+    const sendOffensive = async (reason: string) => {
+      const res = await reportContent({
+        kind: (track as any)?.is_ai_generated ? 'ai_song' : 'track',
+        reason,
+        trackId: track.id,
+        imageUrl: (track as any)?.cover_url,
+      });
+      Alert.alert(res.ok ? "Asante (Thank you)" : "Kosa (Error)", res.ok ? "Ripoti yako imepokelewa. (Report received.)" : (res.error || "Try again later."));
+    };
     Alert.alert(
-      "Ripoti Hakimiliki",
-      "Je, wimbo huu unatumia kazi yako bila ruhusa?",
+      "Ripoti (Report)",
+      "Tatizo ni nini? (What is the problem?)",
       [
-        { text: "Hapana", style: "cancel" },
+        ...REPORT_REASONS.map((reason: string) => ({ text: reason, onPress: () => sendOffensive(reason) })),
         { 
-          text: "Ndiyo, Ripoti", 
+          text: "Hakimiliki (Copyright)", 
           style: "destructive",
           onPress: async () => {
             if (!session) {
@@ -79,7 +89,8 @@ export default function TrackItem({ track, isPlaying, onPress, onArtistPress, on
               Alert.alert("Kosa", e.message);
             }
           }
-        }
+        },
+        { text: "Ghairi (Cancel)", style: "cancel" },
       ]
     );
   };
