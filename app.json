@@ -3,7 +3,7 @@
     "name": "Bongo Stream",
     "slug": "combongostreamapp",
     "backgroundColor": "#0A0A0F",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "scheme": "bongo-stream",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -32,7 +32,7 @@
         "backgroundColor": "#0A0A0F"
       },
       "package": "com.bongostream.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
         "RECORD_AUDIO",
         "android.permission.RECORD_AUDIO",
